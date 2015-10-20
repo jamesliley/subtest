@@ -1,4 +1,5 @@
 Subtest
+
 A package for testing for differential genetic basis between two putative disease subtypes
 
 An important consideration in genomic analysis is the question of whether disease heterogeneity arises from differences in genetic causality or differences in environment. Furthermore, accounting for genetically-driven disease heterogeneity can strengthen the ability to detect disease-causative variants. The question of whether putative subtypes of a disease phenotype have differential genetic basis can be addressed by analysis of appropriate SNP case-control data. This package implements a proposed method and generates supporting data.
