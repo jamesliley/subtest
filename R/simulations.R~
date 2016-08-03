@@ -151,7 +151,7 @@ if (is.character(sims) & (length(sims)==1)) {
 
 sims=pars
 
-if (dim(sims)[2]!=18) stop("Each file or row of simulation matrix must have a single line with 18 elements; in order, the PL under H1, the PL under H0, the correction for Za, the number of iterations of the EM algorithm in the full and null models, the random seed, the paramaters of the full model, and the parameters of the null model.")
+if (dim(sims)[2]<18) stop("Each file or row of simulation matrix must have a single line with 18 elements; in order, the PL under H1, the PL under H0, the correction for Za, the number of iterations of the EM algorithm in the full and null models, the random seed, the paramaters of the full model, and the parameters of the null model.")
 
 wnc=which(sims[,4]<maxit & sims[,5]<maxit)
 if (length(wnc)<dim(sims)[1]) message(paste0(dim(sims)[1]-length(wnc)," simulations removed due to non-convergence"))
@@ -182,7 +182,7 @@ return(list(pars1=xpars1,pars0=xpars0))
 ##' Given outputs of fitted parameters and likelihoods from random subtypes, analyse outcomes in order to compute p-values by extrapolation or interpolation.
 ##'
 ##' @title rand_analysis
-##' @param sims either a matrix of outputs from sim_gen, a directory, or a list of files.
+##' @param sims either a matrix of outputs from sim_gen, a directory and file basename, or a list of files.
 ##' @param maxit if the E-M algorithm uses the maximum allowed number of iterations, it may not have converged. Set this parameter to restrict to only simulations taking fewer than this number of iterations.
 ##' @export
 ##' @author James Liley
@@ -195,7 +195,7 @@ rand_analysis=function(sims,maxit=1e4) {
 # error handlers
 if (!(is.matrix(sims)|is.data.frame(sims)|is.character(sims))) stop("Parameter sims must be a matrix, a list of files, or a directory containing simulation output results")
 if (is.character(sims)) {
-  if (length(sims)==1 && !file.exists(sims)) stop(paste0("Directory ",sims," not found"))
+  if (length(sims)==1 && !file.exists(dirname(sims))) stop(paste0("Directory ",sims," not found"))
   if (length(sims)>1) for (i in 1:length(sims)) if (!file.exists(sims[i])) stop(paste0("File ",sims[i]," not found"))
 }  
   
@@ -205,9 +205,9 @@ if (is.character(sims) & length(sims)>1) {
   for (i in 1:length(sims)) X=rbind(X,read.table(sims[i]))
 }
 if (is.character(sims) & (length(sims)==1)) {
-  files=list.files(sims,pattern="sim*")
+  files=list.files(dirname(sims),pattern=paste0("^",basename(sims),"*"),full.names=TRUE)
   X=c()
-  for (i in 1:length(files)) X=rbind(X,read.table(paste0(sims,"/",files[i])))
+  for (i in 1:length(files)) X=rbind(X,read.table(files[i]))
 }
 
 if (dim(X)[2]!=18) stop("Each file or row of simulation matrix must have a single line with 18 elements; in order, the PL under H1, the PL under H0, the correction for Za, the number of iterations of the EM algorithm in the full and null models, the random seed, the paramaters of the full model, and the parameters of the null model.")
@@ -238,7 +238,7 @@ yy
 ##' @title mixchipars
 ##' @param plr set of plr values
 ##' @param init values of gamma, kappa at which to start numerical fitting algorithm
-##' @returns two element vector; gamma, kappa.
+##' @return two element vector; gamma, kappa.
 ##' @examples
 ##' gamma=0.7;kappa=0.4;p0=0.05; N=10000
 ##' px=sort(gamma*c(rep(0,p0*N),rchisq(kappa*N,df=1),rchisq((1-kappa)*N,df=2)))
@@ -326,11 +326,11 @@ if ((!is.null(QQ) & !is.logical(QQ)) | !is.logical(conf)) stop ("Parameters QQ a
 
 plr=yy$plr
 N=length(plr)
-NN=10000; n0=round(NN*length(which(plr==0))/length(plr)); n1=round(yy$kappa*NN); n2=NN-n0-n1
+NN=10000; n0=round(NN*length(which(plr==0))/length(plr)); n1=min(round(yy$kappa*NN),NN-n0-1); n2=NN-n0-n1
 ya=yy$gamma*sort(c(rep(0,n0),qchisq((1:n1)/(1+n1),df=1),qchisq((1:n2)/(1+n2),df=2))); ya0=quantile(ya,(1:N)/(1+N))
 
 if (is.null(QQ) || !QQ) {
- plot((1:N)/(1+N),sort(plr),xlab="Relative rank",ylab="PLR",...); lines((1:NN)/(1+NN),ya,lwd=2,col="red")
+ plot((1:N)/(1+N),sort(plr),xlab="Relative rank",ylab="PLR'",...); lines((1:NN)/(1+NN),ya,lwd=2,col="red")
  legend(0.2,0.8*max(plr),c("Observed",expression(paste("Mixture ",chi^2))),pch=c(1,45),col=c("black","red"),bty="n")
 }
 
@@ -340,7 +340,7 @@ if (is.null(QQ)) {
 }
 
 if (is.null(QQ)|| QQ) {
- plot(ya0,sort(plr),type="n",xlab=expression(paste("Expected quantile (mixture-",chi^2,")")),ylab="Observed PLR",xaxs="i",yaxs="i",...); abline(0,1,col="red",lwd=3)
+ plot(ya0,sort(plr),type="n",xlab=expression(paste("Expected quantile (mixture-",chi^2,")")),ylab="Observed PLR'",xaxs="i",yaxs="i",...); abline(0,1,col="red",lwd=3)
  
  if (conf) { # draw confidence limits
    if (!exists("lb")|!exists("ub")||!is.numeric(lb)||!is.numeric(ub)||length(lb)!=length(plr)||length(ub)!=length(plr)) { # ie, if lb and ub are not already set.
@@ -367,7 +367,8 @@ if (is.null(QQ)|| QQ) {
    polygon(c(ya0,max(ya0),ya0[length(ya0):1]),c(lb,max(ya0),ub[length(ub):1]),col="grey",border=NA)
  }
  
- points(ya0,sort(plr),cex=0.5); abline(0,1,col="red",lwd=3)
+ points(ya0,sort(plr),cex=0.5); 
+ abline(0,1,col="red",lwd=3)
  X<<- ya0; Y<<- sort(plr)
  if (q95) {
    qx=quantile(ya0,0.95); qy=sort(plr)[length(which(ya0<qx))]
@@ -375,7 +376,7 @@ if (is.null(QQ)|| QQ) {
    abline(h=qy,lty=2,col="blue")
    text(0.5*(qx+max(ya0)),0.8*qy,paste0("Obs. type 1 err: ",signif(length(which(plr>qx))/length(plr),3)))
  }
- legend(0.2,0.8*max(plr),c("Observed",expression(paste("Mixture-",chi^2))),pch=c(1,45),col=c("black","red"),bty="n") 
+ legend(0.2,0.8*max(plr),c("Observed",expression(paste("Mixture-",chi^2))),pch=c(1,45),col=c("black","red"),bg="white") #,bty="n") 
 
 }
 }
@@ -396,11 +397,11 @@ if (is.null(QQ)|| QQ) {
 ##' p_mixchi(10,gamma,kappa)
 p_value=function(x,S=NULL) {
 
-if (is.null(S)) p_mixchi(x) else { # if S is null, p_mixchi will throw a warning message because gamma and kappa are not set
+if (is.null(S)) out=p_mixchi(x) else { # if S is null, p_mixchi will throw a warning message because gamma and kappa are not set
 out=rep(1,length(x))
 out[which(x<=0)]=1
 
-cut1=quantile(S$plr,0.9) # below this cutoff, use empirical quantile in PLR
+if (length(S$plr)<200) cut1=quantile(S$plr,0.9) else cut1=sort(S$plr)[length(S$plr)-20] # below this cutoff, use empirical quantile in PLR
 cut2=8*quantile(S$plr,0.9) # below this cutoff, use mixture chi-squared; above, use MLE-based upper bound
 
 w1=which(x<cut1) # at this range, it is OK to use empirical quantile as p-value
@@ -415,8 +416,8 @@ if (length(w3)>0) {
   out[w3]=pbind(x[w3],S=S)
   out[w3][which(out[w3]>p_mixchi(cut2,S=S))]=p_mixchi(cut2,S=S) # ensure p value is a non-increasing function of PLR.
 }
-}
 
+}
 return(out)
 }
 
@@ -453,6 +454,7 @@ if (is.null(gamma) & is.null(kappa)) {
   } else {
     gamma=0.5 # default value
     kappa=0.5
+    if (is.null(p0)) p0=0
     warning("Parameters gamma and kappa not set. P value will be unreliable")
   }
 }

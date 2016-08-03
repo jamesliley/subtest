@@ -1,0 +1,1025 @@
+##' Fit a specific Gaussian mixture distribution.
+##' 
+##' The mixture distribution simultaneously models two sets of GWAS summary statistics arising from a control group and two case groups comprising subgroups of a disease case group of interest. The values \eqn{Z_{a}}{Z_a} correspond to Z-scores arising from comparing the control group with the combined case group, and the values \eqn{Z_{d}}{Z_d} from comparing one case subgroup with the other, independent of controls.
+##' 
+##' We expect that SNPs can be classified into three categories, corresponding to the three two-dimensional Gaussians in the joint distribution of \eqn{Z_{a}}{Z_a} and \eqn{Z_{d}}{Z_d}. These three categories are: SNPs not associated with the phenotype and not differentiating subtypes; SNPs associated with the phenotypebut not differentiating subtypes; and SNPs differentiating subtypes. 
+##'  
+##' Each of these three categories gives rise to a mixture Gaussian with a different shape. We are interested in whether the data support evidence that SNPs in the third category additionally differentiate cases and controls. Formally, we assume:
+##' 
+##' \deqn{
+##'   pdf(Z_{a},Z_{d}) = \pi_{0} G_{0} + \pi_{1} G_{1} + (1-\pi_{0}-\pi_{1}) G_{2}
+##'  }{
+##'   pdf(Z_a,Z_d) = pi0 G0 + pi1 G1 + (1-pi0 - pi1) G2
+##'  }
+##' 
+##' where \eqn{G_{0},G_{1}}{G0, G1} are bivariate Gaussians with mean \eqn{(0,0)} and covariance matrices \eqn{(1,0;0,1)}, \eqn{(}\code{sigma1}^2\eqn{,0;0,1)} respectively, and \eqn{G_{2}}{G2} is an equally-weighted mixture of two Gaussians with mean \eqn{(0,0)} and covariance matrices \eqn{(}\code{sigma2}^2,\code{rho};\code{rho},\code{tau}^2 \eqn{)} and \eqn{(}\code{sigma2}^2,-\code{rho};-\code{rho},\code{tau}^2 \eqn{)}.
+##' 
+##' The model is thus characterised by the vector \code{\link{pars}}=(\code{pi0},\code{pi1},\code{tau},\code{sigma1},\code{sigma2},\code{rho}). Under the null hypothesis that SNPs which differentiate subtypes are not in general associated with the phenotype, we have \code{sigma2}=1, \code{rho}=0.
+##' 
+##' This function finds the maximum pseudo-likelihood estimators for the paramaters of these three Gaussians, and the mixing parameters representing the proportion of SNPs in each category.
+##' 
+##' @title fit.3g
+##' @param Z an n x 2 matrix; \eqn{Z[i,1]}, \eqn{Z[i,2]} are the \eqn{Z_d} and \eqn{Z_a} scores respectively for the \eqn{i}th SNP
+##' @param pars vector containing initial values of \code{pi0}, \code{pi1}, \code{tau}, \code{sigma1}, \code{sigma2}, \code{rho}.
+##' @param weights SNP weights to adjust for LD; output from LDAK procedure
+##' @param C a term \eqn{C log(}\code{pi0}*\code{pi1}*\code{pi2}\eqn{)} is added to the likelihood so the model is specified.
+##' @param fit_null set to TRUE to fit null model with forced \code{rho}=0, \code{tau}=0
+##' @param maxit maximum number of iterations before algorithm halts
+##' @param tol how small a change in pseudo-likelihood halts the algorithm
+##' @param one_way if TRUE, fits a single-Gaussian for category 3, rather than the symmetric model. Requires signed Z scores.
+##' @param syscov if subgroup proportions in the case group do not match those in the population, \eqn{Z_d} and \eqn{Z_a} scores must be transformed. This leads to a systematic correlation (see function \code{\link{syscor}}). This parameter forces adjustment of the fitted model to allow for this correlation. 
+##' @param sgm force \code{sigma1} \eqn{\ge sgm}, \code{sigma2} \eqn{\ge sgm}, \code{tau} \eqn{\ge sgm}. True marginal variances should never be less than 1, but some variation should be allowed.
+##' @param accel attempts to accelerate the fitting process by taking larger steps.
+##' @param verbose prints current parameters with frequency defined by \code{\link{n_save}}
+##' @param save history to a file with frequency defined by \code{\link{n_save}}
+##' @param b_int save or print current \code{\link{pars}} every \code{\link{b_int}} iterations
+##' @param em set to TRUE to use E-M algorithm, FALSE to use R's \code{\link{optim}} function.
+##' @param incl_z set to TRUE to include input arguments \code{\link{Z}} and \code{\link{weights}} in output. If FALSE these are set to null.
+##' @param ... other parameters passed to R's \code{\link{optim}} function; only used if \code{\link{em}}=FALSE
+##' @return a list of six objects (class \code{\link{3Gfit}}): \code{pars} is the vector of fitted parameters, \code{history} is a matrix of fitted parameters and pseudo-likelihood at each stage in the E-M algorithm, \code{logl} is the joint pseudo-likelihood of \eqn{Z_a} and \eqn{Z_d}, \code{logl_a} is the pseudo-likelihood of \eqn{Z_a} alone (used for adjusting PLR),  \code{z_ad} is n x 2 matrix of \eqn{Z_d} and \eqn{Z_a} scores, \code{weights} is the vector of weights used to generate the model, and \code{hypothesis} is 0 or 1 depending on the value of \code{\link{fit_null}}.
+##' @export
+##' @author Chris Wallace and James Liley
+##' @examples
+##' nn=100000
+##' Z=abs(rbind(rmnorm(0.8*nn,varcov=diag(2)), rmnorm(0.15*nn,varcov=rbind(c(1,0),c(0,2^2))), rmnorm(0.05*nn,varcov=rbind(c(3^2,2),c(2,4^2))))); weights=runif(nn)
+##' yy=fit.3g(Z,pars=c(0.7,0.2,2.5,1.5,3,1),weights=weights,incl_z=TRUE)
+##' yy$pars
+##' plot(yy,rlim=2)
+fit.3g <- function(Z, pars=c(0.8,0.1,2,2,3,0.5), weights=rep(1,dim(Z)[1]), C=1, fit_null=FALSE, maxit=1e4, tol=1e-4, sgm=0.8, one_way=FALSE, syscov=0, accel=TRUE, verbose=TRUE, file=NULL, n_save=20, incl_z=TRUE, em=TRUE,...) {
+
+if (em) {  
+  require(mnormt)
+  # various error handlers
+  if ((length(dim(Z))!=2) | (dim(Z)[1]!=length(weights))) stop("Z must be an n x 2 matrix, and 'weights' must be of length n")
+  if (dim(Z)[2]!=2) stop("Z must be an n x 2 matrix")
+  if (length(pars)!=6) stop("Parameter 'pars' must be a six-element vector containing values of (in order) pi0, pi1, tau, sigma1, sigma2, and rho")
+  if (pars[1]>=1 | pars[2]>=1 | pars[1]<=0 | pars[2]<=0 | pars[1]+pars[2]>=1) stop("Values of pi0, pi1, and pi2 (pars[1],pars[2],1-pars[1]-pars[2]) must all be between 0 and 1")
+  if (min(pars[3:5])<=0 | pars[6]<0) stop("The value of rho (pars[6]) must be nonnegative and values of tau, sigma1, and sigma2 (pars[3:5]) must be positive")
+  if (pars[6]>pars[3]*pars[5]) stop("The covariance matrix (sigma1^2 rho \\ rho sigma2^2) must be positive definite (rho < sigma1*sigma2)")
+  if (!is.null(file)) if (!file.exists(dirname(file))) stop(paste("Directory",dirname(file),"does not exist"))
+  if (one_way & min(Z,na.rm=TRUE) >= 0) stop("Requires signed Z scores if one_way=TRUE")
+  if (min(Z,na.rm=TRUE)>0) syscov=abs(syscov)
+ 
+  if (!one_way) Z=abs(Z) # if we are fitting a symmetric model, signs of Z scores do not contribute information. 
+  ww=which(is.finite(Z[,1]+Z[,2])); Z=Z[ww,]; weights=weights[ww]
+  pars=as.numeric(pars)
+  
+  ## probabilities of category 0, category 1, category 2 membership
+  px <- matrix(c(pars[1],pars[2],1-pars[1]-pars[2]),dim(Z)[1],3,byrow=TRUE)
+  
+  
+  ## parameter vector
+  if (fit_null) {
+    pars[5]=1
+    pars[6]=syscov # usually 0; may be nonzero if Za and Zd are transformed for mismatch in subgroup proportions
+  }
+  
+  
+  pars.fail <- function(pars) if (min(pars[1:5]) < 0) TRUE else FALSE
+  
+  ## likelihood for each category; faster having separate functions
+  
+  if (syscov==0) {
+    
+    lhood1 =function(scale) 4*scale*exp(-rowSums(Z^2)/2)/(2*3.14159265)
+    
+    lhood2 =function(scale,sigma) 4*scale*exp(-(Z[,1]^2 + (Z[,2]/sigma)^2)/2)/(2*3.14159265*sigma)
+  
+  } else { # if there is systematic correlation
+    
+    if (min(Z,na.rm=TRUE)< 0) { 
+      lhood1 =function(scale) {
+        vc=rbind(c(1,syscov),c(syscov,1)); sv=solve(vc)
+        4*scale*( exp(-rowSums((Z %*% sv) * Z)/2) )/(2*3.14159265*sqrt(det(vc)))
+      }
+      
+      lhood2 =function(scale,sigma) {
+        vc=rbind(c(1,syscov),c(syscov,sigma^2)); sv=solve(vc)
+        4*scale*( exp(-rowSums((Z %*% sv) * Z)/2) )/(2*3.14159265*sqrt(det(vc)))
+      }
+    } else { # absolute Z scores
+      lhood1 =function(scale) {
+        vc=rbind(c(1,syscov),c(syscov,1)); sv=solve(vc)
+        vc2=rbind(c(1,-syscov),c(-syscov,1)); sv2=solve(vc2)
+        2*scale*( exp(-rowSums((Z %*% sv) * Z)/2) + exp(-rowSums((Z %*% sv2) * Z)/2) )/(2*3.14159265*sqrt(det(vc)))
+      }
+      
+      lhood2 =function(scale,sigma) {
+        vc=rbind(c(1,syscov),c(syscov,sigma^2)); sv=solve(vc)
+        vc2=rbind(c(1,-syscov),c(-syscov,sigma^2)); sv2=solve(vc2)
+        2*scale*( exp(-rowSums((Z %*% sv) * Z)/2) + exp(-rowSums((Z %*% sv2) * Z)/2) )/(2*3.14159265*sqrt(det(vc)))
+      }
+    }
+    
+  }
+  
+  
+  if (one_way) {
+    lhood3 <- function(scale,sigma,rho) {
+      vc=rbind(c(sigma[1]^2,rho),c(rho,sigma[2]^2)); sv=solve(vc)
+      4*scale*( exp(-rowSums((Z %*% sv) * Z)/2) )/(2*3.14159265*sqrt(det(vc)))
+    }
+  } else {  
+    lhood3 <- function(scale,sigma,rho) {
+      vc=rbind(c(sigma[1]^2,rho),c(rho,sigma[2]^2)); sv=solve(vc)
+      vc2=rbind(c(sigma[1]^2,-rho),c(-rho,sigma[2]^2)); sv2=solve(vc2)
+      2*scale*( exp(-rowSums((Z %*% sv) * Z)/2)
+                + exp(-rowSums((Z %*% sv2) * Z)/2) )/(2*3.14159265*sqrt(det(vc)))
+    }
+  }  
+  
+  
+  ## likelihood function to be maximized
+  lhood <- function(pars, sumlog=TRUE) {
+    if (pars.fail(pars)) return(NA)
+    e = lhood1(pars[1]) + lhood2(pars[2],pars[4]) + lhood3(1-pars[1]-pars[2],c(pars[3],pars[5]),pars[6])
+    
+    e[which(e==0)]=1e-64; e[which(!is.finite(e))]=1e64
+    
+    if(sumlog) {
+      out=sum(weights*log(e)) + (C*log(pars[1]*pars[2]*(1-pars[1]-pars[2]))); names(out)="plhood"
+      out
+    } else e
+  }
+  
+  
+  
+  # Derivative of log-likelihood with respect to rho. Computes with respect to the value 'rho' rather than pars[6]. Only relevant if one_way=FALSE
+  
+  dlhood <- function(pars, rho) {
+    s=pars[3]; t=pars[5]; s0=pars[4]
+    pars_i=pars; pars_i[6]=rho
+    
+    dt= (s*t)^2 - rho^2
+    
+    cd=((Z[,2]*s)^2) + ((Z[,1]*t)^2)
+    pd=Z[,1]*Z[,2]
+    
+    eab=exp(2*pd*rho/dt)
+    eab2=exp(-(cd + (2*pd*rho))/(2*dt))
+    
+    num=exp((2*pd*rho-cd)/(2*dt))*((rho^3)- pd*(rho^2) + (rho*cd) - ((rho+pd)*((s*t)^2))) +
+      eab2*(((rho^3) + pd*(rho^2) + (rho*cd) + ((pd-rho)*((s*t)^2))))
+    denom=lhood(pars_i,sumlog=FALSE)
+    
+    sum(-((1-pars[1]-pars[2])/(3.1415*(dt^(5/2))))*weights*num/denom)
+  }
+  
+  # Pseudo-likelihood of Z_a alone
+  lhood_a=function(pars) {
+    
+    p=c(pars[1:2],1-pars[1]-pars[2])
+    sds=c(1,pars[4:5])
+    adj=C*log(prod(p))
+    
+    out=sum(weights* (
+      -0.5 - (log(sqrt(2*3.1415))) + 
+        log( (p[1]*dnorm(Z[,2],sd=sds[1])) + (p[2]*dnorm(Z[,2],sd=sds[2])) + (p[3]*dnorm(Z[,2],sd=sds[3])))
+    )) + adj; 
+    names(out)="plhood1"
+    out
+  }
+  
+  
+  
+  
+  # Execution of function
+  nit <- 1
+  df <- 1
+  NN <- dim(Z)[1]
+  value <- matrix(NA,maxit,8,dimnames=list(NULL,c("pi0","pi1","tau","sigma1","sigma2","rho","lhood_a","lhood")))
+  value[nit,] <- c(pars,lhood_a(pars),lhood(pars))
+  ws = sum(weights)
+  while(df>tol & nit<maxit) {
+    pars0=pars 
+    if ((nit %% n_save)==0) { # Print or save 'pars' every n iterations
+      if (verbose) print(c(nit,pars,lhood(pars),df),digits=6)
+      if (!is.null(file)) {
+        hist=value[1:nit,]
+        save(hist,file=tempsave)
+      }
+    }
+    
+    nit <- nit+1
+    
+    ## E step
+    px[,1] <- lhood1(pars[1]) #lhood.single(pars[1],c(1,1),0)
+    px[,2] <- lhood2(pars[2],pars[4]) #lhood.single(pars[2],c(1,pars[4]),0)
+    px[,3] <- lhood3(1-pars[1]-pars[2],c(pars[3],pars[5]),pars[6])
+    
+    px <- px/rowSums(px) ## normalise
+    if (any(!is.finite(px))) px[which(!is.finite(px))] = 0
+    p <- (colSums(px*weights) + C)/(ws + 3*C)   # additional term
+    pars[1]=p[1]; pars[2]=p[2]
+    
+    ## M step
+    if (!is.null(sgm)) mxs=sgm else mxs=0 # require fitted SDs to be > sgm
+    
+    pars[3] <- sqrt(max(mxs,sum(weights* px[,3] * Z[,1]^2 ) / sum(weights*px[,3]))) # tau
+    pars[4] <- sqrt(max(mxs,sum(weights* px[,2] * Z[,2]^2 ) / sum(weights*px[,2]))) # sigma1
+    
+    if (!fit_null) {
+      pars[5] <- sqrt(max(mxs,sum(weights* px[,3] * Z[,2]^2 ) / sum(weights*px[,3]))) # sigma2; not fit under H0
+      
+      if (one_way) { # one-way correlation fit
+        pars[6] = sum(weights* px[,3] * Z[,1] * Z[,2] ) / sum(weights*px[,3])
+      } else { # two-way correlation fit
+        tau=pars[3]; s2=pars[5]; lower=syscov; upper=tau*s2-0.001; # Fit rho
+        if (dlhood(pars,syscov + (upper-syscov)/100000)<0) pars[6]=syscov else {
+          while (upper-lower>0.001) { # find MLE for rho using bisection method
+            mid=(upper+lower)/2
+            if (dlhood(pars,mid)<0) upper=mid else lower=mid
+          } # endwhile
+          pars[6]=(upper+lower)/2
+        } # endelse
+      } # endelse
+    } # endif
+    
+    if (accel & nit>5) {
+      dpars=pars-pars0;
+      pars1=pars; pars2=pars+dpars
+      pars2[which(pars2<0)]=1e-64
+      if (pars2[3]<mxs) pars2[3]=mxs;
+      if (pars2[4]<mxs) pars2[4]=mxs;
+      if (pars2[5]<mxs) pars2[5]=mxs;
+      pars2[which(pars2[1:5]<0)]=1e-64
+      if (pars2[1]+pars2[2]>1) pars2[1:2]=pars1[1:2]
+      if (!one_way & pars2[6]<syscov) pars2[6]=syscov
+      if (abs(pars2[6])>0.95*pars2[3]*pars2[5]) pars2[6]=sign(pars2[6])*0.95*pars2[3]*pars2[5] # covariance matrix must be positive definite
+      while (lhood(pars2)>lhood(pars1)) {
+        pars1=pars2
+        pars2=pars2+(3*dpars); # pars2[6]=pars1[6]
+        if (pars2[3]<mxs) pars2[3]=mxs; 
+        if (pars2[4]<mxs) pars2[4]=mxs;
+        if (pars2[5]<mxs) pars2[5]=mxs;
+        pars2[which(pars2[1:5]<0)]=1e-64
+        if (pars2[1]+pars2[2]>1) pars2[1:2]=pars1[1:2]
+        if (!one_way & pars2[6]<syscov) pars2[6]=syscov
+        if (abs(pars2[6])>0.95*pars2[3]*pars2[5]) pars2[6]=sign(pars2[6])*0.95*pars2[3]*pars2[5] # covariance matrix must be positive definite
+      }
+      pars=pars1
+    }
+    value[nit,] <- c(pars,lhood_a(pars), lhood(pars))
+    df <- abs(value[nit,dim(value)[2]] - value[nit-1,dim(value)[2]])
+  }
+  
+  names(pars)=colnames(value)[1:6]
+  
+  if (incl_z)  yy=list(pars=pars,history=value[1:nit,],logl=lhood(pars),logl_a=lhood_a(pars),z_ad=Z,weights=weights,hypothesis=as.numeric(!fit_null)) else {
+    yy=list(pars=pars,history=value[1:nit,],logl=lhood(pars),logl_a=lhood_a(pars),z_ad=NULL,weights=NULL,hypothesis=as.numeric(!fit_null))
+  }
+  
+  class(yy)="3Gfit"
+  return(yy)
+  
+  
+} else { # use R's optim function
+
+method="L-BFGS-B"
+  
+  require(stats)
+  require(mnormt)
+  
+  # various error handlers
+  if ((length(dim(Z))!=2) | (dim(Z)[1]!=length(weights))) stop("Z must be an n x 2 matrix, and 'weights' must be of length n")
+  if (dim(Z)[2]!=2) stop("Z must be an n x 2 matrix")
+  if (length(pars)!=6) stop("Parameter 'pars' must be a six-element vector containing values of (in order) pi0, pi1, tau, sigma1, sigma2, and rho")
+  if (pars[1]>=1 | pars[2]>=1 | pars[1]<=0 | pars[2]<=0 | pars[1]+pars[2]>=1) stop("Values of pi0, pi1, and pi2 (pars[1],pars[2],1-pars[1]-pars[2]) must all be between 0 and 1")
+  if (min(pars[3:5])<=0 | pars[6]<0) stop("The value of rho (pars[6]) must be nonnegative and values of tau, sigma1, and sigma2 (pars[3:5]) must be positive")
+  if (pars[6]>pars[3]*pars[5]) stop("The covariance matrix (sigma1^2 rho \\ rho sigma2^2) must be positive definite (rho < sigma1*sigma2)")
+  if (one_way & min(Z,na.rm=TRUE) >= 0) stop("Requires signed Z scores if one_way=TRUE")
+  if (min(Z,na.rm=TRUE)>0) syscov=abs(syscov)
+  
+  if (!one_way) Z=abs(Z) # if we are fitting a symmetric model, signs of Z scores do not contribute information. 
+  ww=which(is.finite(Z[,1]+Z[,2])); Z=Z[ww,]; weights=weights[ww]
+  pars=as.numeric(pars)
+  
+  if (fit_null) {
+    pars[5]=1
+    pars[6]=syscov
+  }
+  
+  
+  
+  if (syscov == 0) {
+    if (one_way) {
+      lh0=dmnorm(Z,varcov=diag(2))
+      lh1=function(s) dmnorm(Z,varcov=cbind(c(1,0),c(0,s^2)))
+      lh2=function(t,s,r) dmnorm(Z,varcov=cbind(c(t^2,r),c(r,s^2)))
+    } else {
+      lh0=dmnorm(Z,varcov=diag(2))
+      lh1=function(s) dmnorm(Z,varcov=cbind(c(1,0),c(0,s^2)))
+      lh2=function(t,s,r) 0.5*(dmnorm(Z,varcov=cbind(c(t^2,r),c(r,s^2)))+dmnorm(Z,varcov=cbind(c(t^2,-r),c(-r,s^2))))
+    }
+  } else {
+    if (one_way) {
+      lh0=dmnorm(Z,varcov=cbind(c(1,syscov),c(syscov,1)))
+      lh1=function(s) dmnorm(Z,varcov=cbind(c(1,syscov),c(syscov,s^2)))
+      lh2=function(t,s,r) dmnorm(Z,varcov=cbind(c(t^2,r),c(r,s^2)))
+    } else {
+      lh0=0.5*(dmnorm(Z,varcov=cbind(c(1,syscov),c(syscov,1))) + dmnorm(Z,varcov=cbind(c(1,-syscov),c(-syscov,1))))
+      lh1=function(s) 0.5*(dmnorm(Z,varcov=cbind(c(1,syscov),c(syscov,s^2))) + dmnorm(Z,varcov=cbind(c(1,-syscov),c(-syscov,s^2))))
+      lh2=function(t,s,r) 0.5*(dmnorm(Z,varcov=cbind(c(t^2,r),c(r,s^2)))+dmnorm(Z,varcov=cbind(c(t^2,-r),c(-r,s^2))))
+    }
+  }
+  
+  lht=function(pars) sum(weights*log(pars[1]*lh0 + pars[2]*lh1(pars[4]) + (1-pars[1]-pars[2])*lh2(pars[3],pars[5],pars[6])))
+  lha=function(pars) -0.5 - (log(sqrt(2*3.1415))) + sum(weights*log(pars[1]*dnorm(Z[,2]) + pars[2]*dnorm(Z[,2],sd=pars[4]) + (1-pars[1]-pars[2])*dnorm(Z[,2],sd=pars[5])))
+  
+  lh=function(pars) lht(pars) + C*log(pars[1]*pars[2]*(1-pars[1]-pars[2]))
+  
+
+  if (!fit_null) {
+    
+    lmax=function(px)
+      -lh(c(px[1]/(1+px[1]),px[2]/((1+px[1])*(1+px[2])),px[3],px[4],px[5],0.63662*px[3]*px[5]*atan(px[6])))
+    sol=optim(c(pars[1]/(1-pars[1]),pars[2]/(1-pars[1]-pars[2]),pars[3],pars[4],pars[5],tan(1.57079*pars[6]/(pars[3]*pars[5]))),lmax,method=method,lower=c(0.001,0.001,sgm,sgm,sgm,0), upper=c(100,100,20,20,20,10),...)
+    ss=sol[1]$par
+    conv <<- sol[4]$convergence
+    parsx = c(ss[1]/(1+ss[1]),ss[2]/((1+ss[1])*(1+ss[2])),ss[3],ss[4],ss[5],0.63662*ss[3]*ss[5]*atan(ss[6]))
+  } else {
+    lmax=function(px) -lh(c(px[1]/(1+px[1]),px[2]/((1+px[1])*(1+px[2])),px[3],px[4],1,0))
+    sol=optim(c(pars[1]/(1-pars[1]),pars[2]/(1-pars[1]-pars[2]),pars[3],pars[4]),lmax,method=method,lower=c(0.001,0.001,sgm,sgm),upper=c(100,100,20,20),...)
+    conv <<- sol[4]$convergence
+    ss=sol[1]$par
+    parsx = c(ss[1]/(1+ss[1]),ss[2]/((1+ss[1])*(1+ss[2])),ss[3],ss[4],1,0)
+  }
+  
+  if (incl_z)  {
+    yy=list(pars=parsx,history=NULL,logl=lh(parsx),logl_a=lha(parsx),z_ad=Z,weights=weights,hypothesis=as.numeric(!fit_null)) 
+  } else {
+    yy=list(pars=parsx,history=NULL,logl=lh(parsx),logl_a=lha(parsx),z_ad=NULL,weights=NULL,hypothesis=as.numeric(!fit_null))
+  }
+  
+  class(yy)="3Gfit"
+  return(yy)
+  
+}
+}
+
+
+
+
+##' Fit a specific bivariate Gaussian mixture distribution, conditioning on one variable
+##' 
+##' The mixture distribution simultaneously models two sets of GWAS summary statistics arising from a control group and two case groups comprising subgroups of a disease case group of interest. The values \eqn{Z_{a}}{Z_a} correspond to Z-scores arising from comparing the control group with the combined case group, and the values \eqn{Z_{d}}{Z_d} from comparing one case subgroup with the other, independent of controls.
+##' 
+##' We expect that SNPs can be classified into three categories, corresponding to the three two-dimensional Gaussians in the joint distribution of \eqn{Z_{a}}{Z_a} and \eqn{Z_{d}}{Z_d}. These three categories are: SNPs not associated with the phenotype and not differentiating subtypes; SNPs associated with the phenotypebut not differentiating subtypes; and SNPs differentiating subtypes. 
+##'  
+##' Each of these three categories gives rise to a mixture Gaussian with a different shape. We are interested in whether the data support evidence that SNPs in the third category additionally differentiate cases and controls. Formally, we assume:
+##' 
+##' \deqn{
+##'   Z_{a},Z_{d} ~ \pi_{0} G_{0} + \pi_{1} G_{1} + (1-\pi_{0}-\pi_{1}) G_{2}
+##'  }{
+##'   Z_a,Z_d ~ pi0 G0 + pi1 G1 + (1-pi0 - pi1) G2
+##'  }
+##' 
+##' where \eqn{G_{0},G_{1}}{G0, G1} are bivariate Gaussians with mean \eqn{(0,0)} and covariance matrices \eqn{(1,0;0,1)}, \eqn{(}\code{sigma1}^2\eqn{,0;0,1)} respectively, and \eqn{G_{2}}{G2} is an equally-weighted mixture of two Gaussians with mean \eqn{(0,0)} and covariance matrices \eqn{(}\code{sigma2}^2,\code{rho};\code{rho},\code{tau}^2 \eqn{)} and \eqn{(}\code{sigma2}^2,-\code{rho};-\code{rho},\code{tau}^2 \eqn{)}.
+##' 
+##' The model is thus characterised by the vector \code{\link{pars}}=(\code{pi0},\code{pi1},\code{tau},\code{sigma1},\code{sigma2},\code{rho}). Under the null hypothesis that SNPs which differentiate subtypes are not in general associated with the phenotype, we have \code{sigma2}=1, \code{rho}=0.
+##' 
+##' In estimating the null distribution of the test statistic, frequently the only available null test cases have \code{\link{tau}=1}. This can cause false-positives if \code{\link{Z_{a}}} is better-fit by a three gaussian distribution than two.
+##' 
+##' To overcome this, we maximise the likelihood conditioning on the observed values of \code{\link{Z_{a}}}
+##' 
+##' This function finds the maximum pseudo-likelihood estimators for the paramaters of these three Gaussians, and the mixing parameters representing the proportion of SNPs in each category.
+##' 
+##' @title fit.cond
+##' @param Z an n x 2 matrix; \eqn{Z[i,1]}, \eqn{Z[i,2]} are the \eqn{Z_d} and \eqn{Z_a} scores respectively for the \eqn{i}th SNP
+##' @param pars vector containing initial values of \code{pi0}, \code{pi1}, \code{tau}, \code{sigma1}, \code{sigma2}, \code{rho}.
+##' @param weights SNP weights to adjust for LD; output from LDAK procedure
+##' @param C a term \eqn{C log(}\code{pi0}*\code{pi1}*\code{pi2}\eqn{)} is added to the likelihood so the model is specified.
+##' @param fit_null set to TRUE to fit null model with forced \code{rho}=0, \code{tau}=0
+##' @param one_way if TRUE, fits a single-Gaussian for category 3, rather than the symmetric model. Requires signed Z scores.
+##' @param syscov if subgroup proportions in the case group do not match those in the population, \eqn{Z_d} and \eqn{Z_a} scores must be transformed. This leads to a systematic correlation (see function \code{\link{syscor}}). This parameter forces adjustment of the fitted model to allow for this correlation. 
+##' @param sgm force \code{sigma1} \eqn{\ge sgm}, \code{sigma2} \eqn{\ge sgm}, \code{tau} \eqn{\ge sgm}. True marginals variances should never be less than 1, but some variation should be allowed.
+##' @param fixpi1 set to TRUE to fix \code{\link{pi1}} when fitting.
+##' @param incl_z set to TRUE to include input arguments \code{\link{Z}} and \code{\link{weights}} in output. If FALSE these are set to null.
+##' @param ... additional parameters passed to the R function optim.
+##' @return a list of six objects (class \code{\link{3Gfit}}): \code{pars} is the vector of fitted parameters, \code{history} is a matrix of fitted parameters and pseudo-likelihood at each stage in the E-M algorithm, \code{logl} is the joint pseudo-likelihood of \eqn{Z_a} and \eqn{Z_d}, \code{logl_a} is the pseudo-likelihood of \eqn{Z_a} alone (used for adjusting PLR),  \code{z_ad} is n x 2 matrix of \eqn{Z_d} and \eqn{Z_a} scores, \code{weights} is the vector of weights used to generate the model, and \code{hypothesis} is 0 or 1 depending on the value of \code{\link{fit_null}}.
+##' @export
+##' @author Chris Wallace and James Liley
+##' @examples
+##' nn=100000
+##' Z=abs(rbind(rmnorm(0.8*nn,varcov=diag(2)), rmnorm(0.15*nn,varcov=rbind(c(1,0),c(0,2^2))), rmnorm(0.05*nn,varcov=rbind(c(3^2,2),c(2,4^2))))); weights=runif(nn)
+##' yy=fit.3g(Z,pars=c(0.7,0.2,2.5,1.5,3,1),weights=weights,incl_z=TRUE)
+##' yy$pars
+##' plot(yy,rlim=2)
+fit.cond=function(Z,pars=c(0.8,0.1,2,3,1,0),C=1,weights=rep(1,dim(Z)[1]),fit_null=FALSE,one_way=FALSE,syscov=0,sgm=0.8,fixpi1=TRUE,incl_z=FALSE,method="L-BFGS-B",...) {
+
+  require(stats)
+  require(mnormt)
+
+  # various error handlers
+  if ((length(dim(Z))!=2) | (dim(Z)[1]!=length(weights))) stop("Z must be an n x 2 matrix, and 'weights' must be of length n")
+  if (dim(Z)[2]!=2) stop("Z must be an n x 2 matrix")
+  if (length(pars)!=6) stop("Parameter 'pars' must be a six-element vector containing values of (in order) pi0, pi1, tau, sigma1, sigma2, and rho")
+  if (pars[1]>=1 | pars[2]>=1 | pars[1]<=0 | pars[2]<=0 | pars[1]+pars[2]>=1) stop("Values of pi0, pi1, and pi2 (pars[1],pars[2],1-pars[1]-pars[2]) must all be between 0 and 1")
+  if (min(pars[3:5])<=0 | pars[6]<0) stop("The value of rho (pars[6]) must be nonnegative and values of tau, sigma1, and sigma2 (pars[3:5]) must be positive")
+  if (pars[6]>pars[3]*pars[5]) stop("The covariance matrix (sigma1^2 rho \\ rho sigma2^2) must be positive definite (rho < sigma1*sigma2)")
+  if (one_way & min(Z,na.rm=TRUE) >= 0) stop("Requires signed Z scores if one_way=TRUE")
+  if (min(Z,na.rm=TRUE)>0) syscov=abs(syscov)
+  
+  if (!one_way) Z=abs(Z) # if we are fitting a symmetric model, signs of Z scores do not contribute information. 
+  ww=which(is.finite(Z[,1]+Z[,2])); Z=Z[ww,]; weights=weights[ww]
+  pars=as.numeric(pars)
+  
+  if (fit_null) {
+    pars[5]=1
+    pars[6]=syscov
+  }
+  
+  
+  
+  if (syscov == 0) {
+    if (one_way) {
+      lh0=dmnorm(Z,varcov=diag(2))
+      lh1=function(s) dmnorm(Z,varcov=cbind(c(1,0),c(0,s^2)))
+      lh2=function(t,s,r) dmnorm(Z,varcov=cbind(c(t^2,r),c(r,s^2)))
+    } else {
+      lh0=dmnorm(Z,varcov=diag(2))
+      lh1=function(s) dmnorm(Z,varcov=cbind(c(1,0),c(0,s^2)))
+      lh2=function(t,s,r) 0.5*(dmnorm(Z,varcov=cbind(c(t^2,r),c(r,s^2)))+dmnorm(Z,varcov=cbind(c(t^2,-r),c(-r,s^2))))
+    }
+  } else {
+    if (one_way) {
+      lh0=dmnorm(Z,varcov=cbind(c(1,syscov),c(syscov,1)))
+      lh1=function(s) dmnorm(Z,varcov=cbind(c(1,syscov),c(syscov,s^2)))
+      lh2=function(t,s,r) dmnorm(Z,varcov=cbind(c(t^2,r),c(r,s^2)))
+    } else {
+      lh0=0.5*(dmnorm(Z,varcov=cbind(c(1,syscov),c(syscov,1))) + dmnorm(Z,varcov=cbind(c(1,-syscov),c(-syscov,1))))
+      lh1=function(s) 0.5*(dmnorm(Z,varcov=cbind(c(1,syscov),c(syscov,s^2))) + dmnorm(Z,varcov=cbind(c(1,-syscov),c(-syscov,s^2))))
+      lh2=function(t,s,r) 0.5*(dmnorm(Z,varcov=cbind(c(t^2,r),c(r,s^2)))+dmnorm(Z,varcov=cbind(c(t^2,-r),c(-r,s^2))))
+    }
+  }
+  
+  lht=function(pars) sum(weights*log(pars[1]*lh0 + pars[2]*lh1(pars[4]) + (1-pars[1]-pars[2])*lh2(pars[3],pars[5],pars[6])))
+  lha=function(pars) -0.5 - (log(sqrt(2*3.1415))) + sum(weights*log(pars[1]*dnorm(Z[,2]) + pars[2]*dnorm(Z[,2],sd=pars[4]) + (1-pars[1]-pars[2])*dnorm(Z[,2],sd=pars[5])))
+  
+  lh=function(pars) lht(pars)-lha(pars) + C*log(pars[1]*pars[2]*(1-pars[1]-pars[2]))
+    
+  p4=pars[4] # do not fit pars[4] in this instance
+  p2=pars[2] # maybe do not fit pars[2] 
+  
+  if (!fixpi1) {
+  if (!fit_null) {
+
+    lmax=function(px)
+        -lh(c(px[1]/(1+px[1]),px[2]/((1+px[1])*(1+px[2])),px[3],p4,px[4],0.63662*px[3]*px[4]*atan(px[5])))
+    sol=optim(c(pars[1]/(1-pars[1]),pars[2]/(1-pars[1]-pars[2]),pars[3],pars[5],tan(1.57079*pars[6]/(pars[3]*pars[5]))),lmax,method=method,lower=c(0.001,0.001,sgm,sgm,0), upper=c(100,100,20,20,10),...)
+    ss=sol[1]$par
+    conv <<- sol[4]$convergence
+    parsx = c(ss[1]/(1+ss[1]),ss[2]/((1+ss[1])*(1+ss[2])),ss[3],p4,ss[4],0.63662*ss[3]*ss[4]*atan(ss[5]))
+  } else {
+    lmax=function(px) -lh(c(px[1]/(1+px[1]),px[2]/((1+px[1])*(1+px[2])),px[3],p4,1,0))
+    sol=optim(c(pars[1]/(1-pars[1]),pars[2]/(1-pars[1]-pars[2]),pars[3]),lmax,method=method,lower=c(0.001,0.001,sgm),upper=c(100,100,20),...)
+    conv <<- sol[4]$convergence
+    ss=sol[1]$par
+    parsx = c(ss[1]/(1+ss[1]),ss[2]/((1+ss[1])*(1+ss[2])),ss[3],p4,1,0)
+  }
+  } else { # fix pi1
+    if (!fit_null) {
+      lmax=function(px)
+        -lh(c(px[1]*(1-p2)/(1+px[1]),p2,px[2],p4,px[3],0.63662*px[2]*px[3]*atan(px[4])))
+      sol=optim(c(pars[1]/(1-pars[1]),pars[3],pars[5],tan(1.57079*pars[6]/(pars[3]*pars[5]))),lmax,method=method,lower=c(0.001,sgm,sgm,0), upper=c(100,20,20,10),...)
+      ss=sol[1]$par
+      conv <<- sol[4]$convergence
+      parsx = c(ss[1]*(1-p2)/(1+ss[1]),p2,ss[2],p4,ss[3],0.63662*ss[2]*ss[3]*atan(ss[4]))
+    } else {
+      lmax=function(px) -lh(c(px[1]*(1-p2)/(1+px[1]),p2,px[2],p4,1,0))
+      sol=optim(c(pars[1]/(1-pars[1]),pars[3]),lmax,method=method,lower=c(0.001,sgm),upper=c(100,20),...)
+      conv <<- sol[4]$convergence
+      ss=sol[1]$par
+      parsx = c(ss[1]*(1-p2)/(1+ss[1]),p2,ss[2],p4,1,0)
+    }
+  }
+    
+  if (incl_z)  {
+    yy=list(pars=parsx,history=NULL,logl=lh(parsx),logl_a=0,z_ad=Z,weights=weights,hypothesis=as.numeric(!fit_null)) 
+  } else {
+    yy=list(pars=parsx,history=NULL,logl=lh(parsx),logl_a=0,z_ad=NULL,weights=NULL,hypothesis=as.numeric(!fit_null))
+  }
+  
+  class(yy)="3Gfit"
+  return(yy)
+
+}
+
+
+
+
+
+
+
+
+
+
+##' Print method for class \code{\link{3Gfit}}
+##' 
+##' @param yy object of class \code{\link{3Gfit}}; generally output from \code{\link{fit.3g}}
+##' @export
+##' @author James Liley
+print.3Gfit = function(y,n=3,...) {
+  cat("Fitted parameters under",c("null", "full")[1+y$hyp],"model\n")
+  print(y$pars)
+  cat("\n")
+  cat("Pseudo-likelihood: ",y$logl)
+  cat("\n")
+  cat("Pseudo-likelihood of Z_a: ",y$logl_a)
+  cat("\n\n")
+  
+  cat("Interim parameters from fitting algorithm \n")
+  print(y$hist)
+  cat("\n")
+  if (!is.null(y$z_ad)) {
+    cat("Values of Z_d, Z_a, and weights")
+    print(cbind(y$z_ad,y$weights))
+  } 
+}
+
+
+
+
+##' Summary method for class \code{\link{3Gfit}}
+##' 
+##' @param yy object of class \code{\link{3Gfit}}; generally output from \code{\link{fit.3g}}
+##' @param n print this many rows of matrix
+##' @export
+##' @author James Liley
+summary.3Gfit = function(yy,n=3,...) {
+  cat("Fitted parameters under",c("null", "full")[1+yy$hyp],"model\n")
+  print(yy$pars)
+  cat("\n")
+  
+  cat("Pseudo-likelihood: ",yy$logl)
+  cat("\n")
+  cat("Pseudo-likelihood of Z_a: ",yy$logl_a)
+  cat("\n\n")
+  
+  cat("Number of iterations to fit:",dim(yy$hist)[1],"\n")
+  if (dim(yy$hist)[1]> 2*n) {
+    cat("First and final",n,"iterations of fitting algorithm\n")
+    print(data.frame(yy$hist[1:n,]),row.names=FALSE)
+    cat("...\n")
+    print(data.frame(yy$hist[(dim(yy$hist)[1]-n+1):dim(yy$hist)[1],]),row.names=FALSE)
+  } else {
+    cat("Iterations of fitting algorithm")
+    print(yy$hist)
+  }
+  cat("\n")
+  if (!is.null(yy$z_ad)) {
+    cat("Number of SNP observations:",dim(yy$z_ad)[1],"\n")
+    cat("Number of SNPs with non-zero LDAK weights:",length(which(yy$weights>0)),"\n\n")
+    cat("Max. Z_d",round(max(yy$z_ad[,1]),digits=2),"\n")
+    cat("Max. Z_a",round(max(yy$z_ad[,2]),digits=2),"\n")
+  } 
+}
+
+
+
+##' Plot method for class \code{\link{3Gfit}}. 
+##' 
+##' If the \code{z_ad} attribute of parameter \code{\link{yy}} is set, plots the absolute \eqn{Z_{a}}{Z_a} and \eqn{Z_{d}}{Z_d} scores (+/+ quadrant only), blocking out dense regions, and contours of the fitted Gaussians. Note that category 3 comprises two mirror-image Gaussians. Contours for category 1 are drawn in black, category 2 in blue, and category 3 in red.
+##' @param yy object of class \code{\link{3Gfit}}; generally output from \code{\link{fit.3g}}
+##' @param scales set to draw contours of the distributions at these levels (passed to \code{\link{plotpars}} and \code{\link{plotvdist}}).
+##' @export
+##' @author James Liley
+
+plot.3Gfit=function(yy,...) {
+  
+  if (!is.null(yy$z_ad)) {
+    plotZ(yy$z_ad[which(yy$weights>0),],col="darkgrey",...) 
+    plotpars(yy$pars)
+  } else {
+    plotpars(yy$pars,over=FALSE)
+  } 
+  # legend(0.6*par("usr")[2],0.8*par("usr")[4],c("Category 1","Category 2","Category 3"),col=c("black","blue","red"),lty=3)
+}
+
+
+
+
+##' Pseudo-likelihood for a set of observations of Z_d and Z_a
+##' @param Z an n x 2 array; Z[i,1], Z[i,2] are the Z_d and Z_a scores respectively for the ith SNP
+##' @param pars vector containing initial values of pi0,pi1,tau,sigma1,sigma2,rho.
+##' @param weights SNP weights to adjust for LD; output from LDAK procedure
+##' @param C scaling factor for adjustment
+##' @param sumlog set to TRUE to return the (weighted) sum of log pseudo-likelihoods for each datapoint; FALSE to return a vector of pseudo-likelihoods for each datapoint.
+##' @author James Liley
+##' @return value of pseudo- log likelihood of all observations (if sumlog==TRUE) or vector of n pseudo-likelihoods (if sumlog==FALSE)
+
+plhood <- function(Z,pars,weights=rep(1,dim(Z)[1]), sumlog=TRUE,C=1) {
+  
+  # various error handlers
+  if ((length(dim(Z))!=2) | (dim(Z)[1]!=length(weights))) stop("Z must be an n x 2 matrix, and 'weights' must be of length n")
+  if (dim(Z)[2]!=2) stop("Z must be an n x 2 matrix")
+  if (length(pars)!=6) stop("Parameter 'pars' must be a six-element vector containing values of (in order) pi0, pi1, tau, sigma1, sigma2, and rho")
+  if (pars[1]>=1 | pars[2]>=1 | pars[1]<=0 | pars[2]<=0 | pars[1]+pars[2]>=1) stop("Values of pi0, pi1, and pi2 (pars[1],pars[2],1-pars[1]-pars[2]) must all be between 0 and 1")
+  if (min(pars[3:5])<=0 | pars[6]<0) stop("The value of rho (pars[6]) must be nonnegative and values of tau, sigma1, and sigma2 (pars[3:5]) must be positive")
+  if (pars[6]>pars[3]*pars[5]) stop("The covariance matrix (sigma1^2 rho \\ rho sigma2^2) must be positive definite (rho < sigma1*sigma2)")
+  
+  pars=as.numeric(pars)
+  ## likelihood for each category; faster having separate functions
+  lhood1 =function(scale) 4*scale*exp(-rowSums(Z^2)/2)/(2*3.14159265)
+  
+  lhood2 =function(scale,sigma) 4*scale*exp(-(Z[,1]^2 + (Z[,2]/sigma)^2)/2)/(2*3.14159265*sigma)
+  
+  lhood3 <- function(scale,sigma,rho) {
+    vc=rbind(c(sigma[1]^2,rho),c(rho,sigma[2]^2)); sv=solve(vc)
+    vc2=rbind(c(sigma[1]^2,-rho),c(-rho,sigma[2]^2)); sv2=solve(vc2)
+    2*scale*( exp(-rowSums((Z %*% sv) * Z)/2)/(2*3.14159265*sqrt(det(vc)))
+              + exp(-rowSums((Z %*% sv2) * Z)/2)/(2*3.14159265*sqrt(det(vc2))))
+  }
+  
+  e = lhood1(pars[1]) + lhood2(pars[2],pars[4]) + lhood3(1-pars[1]-pars[2],c(pars[3],pars[5]),pars[6])
+  
+  e[which(e==0)]=1e-64; e[which(!is.finite(e))]=1e64
+  
+  if(sumlog) {
+    out=sum(weights*log(e)) + (C*log(pars[1]*pars[2]*(1-pars[1]-pars[2]))); names(out)="plhood"
+    out 
+  } else e
+}
+
+
+
+##' Computes the likelihood of observed \eqn{Z_{a}}{Z_a}.
+##' 
+##' Used for establishing how much of a likelihood ratio is because \eqn{Z_{a}}{Z_a} is better-fitted by a three-Gaussian model than a two-Gaussian model. Strictly, calculates the expected value of \eqn{PL(Z_{d},Z_{a})}{PL(Z_d,Z_a)} when \eqn{Z_{d}}{Z_d} has uniform unit variance, and the parameter values \code{tau}, \code{rho} are set to 1, 0 respectively.
+##'
+##' @title plhood1
+##' @param za one dimensional vector of \eqn{Z_{a}}{Z_a} scores
+##' @param pars vector of parameters (\code{pi0},\code{pi1},\code{tau},\code{sigma1},\code{sigma2},\code{rho})
+##' @param weights LDAK weights corresponding to \eqn{Z_{a}}{Z_a}
+##' @param C scaling factor for adjustment
+##' @param sumlog set to TRUE to return the (weighted) sum of log pseudo-likelihoods for each datapoint; FALSE to return a vector of pseudo-likelihoods for each datapoint.
+##' @author James Liley
+##' @export
+##' @return value of pseudo- log likelihood of all observations (if \code{\link{sumlog}}==TRUE) or vector of n pseudo-likelihoods (if \code{\link{sumlog}}==FALSE)
+
+plhood1=function(za,pars,weights=rep(1,length(za)),C=1,sumlog=TRUE) {
+  
+  # various error handlers
+  if ((length(dim(za))>1) | (length(za)!=length(weights))) stop("Parameter 'za' must be one-dimensional and must be of the same length as 'weights'")
+  if (length(pars)!=6) stop("Parameter 'pars' must be a six-element vector containing values of (in order) pi0, pi1, tau, sigma1, sigma2, and rho")
+  if (pars[1]>=1 | pars[2]>=1 | pars[1]<=0 | pars[2]<=0 | pars[1]+pars[2]>=1) stop("Values of pi0, pi1, and pi2 (pars[1],pars[2],1-pars[1]-pars[2]) must all be between 0 and 1")
+  if (min(pars[3:5])<=0 | pars[6]<0) stop("The value of rho (pars[6]) must be nonnegative and values of tau, sigma1, and sigma2 (pars[3:5]) must be positive")
+  if (pars[6]>pars[3]*pars[5]) stop("The covariance matrix (sigma1^2 rho \\ rho sigma2^2) must be positive definite (rho < sigma1*sigma2)")
+  
+  pars=as.numeric(pars)
+  p=c(pars[1:2],1-pars[1]-pars[2])
+  sds=c(1,pars[4:5])
+  adj=C*log(prod(p))
+  
+  if (sumlog) {
+    out=sum(weights* (
+      -0.5 - (log(sqrt(2*3.1415))) + 
+        log( (p[1]*dnorm(za,sd=sds[1])) + (p[2]*dnorm(za,sd=sds[2])) + (p[3]*dnorm(za,sd=sds[3])))
+    )) + adj; names(out)="plhood_a"
+    out
+  } else {
+    exp(-0.5)*(1/sqrt(2*3.1415926))*( (p[1]*dnorm(za,sd=sds[1])) + (p[2]*dnorm(za,sd=sds[2])) + (p[3]*dnorm(za,sd=sds[3])))
+  }
+}
+
+
+
+
+
+
+##' Plots contour lines of a bivariate normal distribution parametrised by covariance matrix, at specific distribution heights \code{\link{scales}}
+##'
+##' @title plotvdist
+##' @param varcov covariance matrix (2 x 2)
+##' @param m mean vector
+##' @param scales heights of normal PDF at which to draw contour lines. If \code{\link{relative}}=TRUE, draws contours at heights given by \code{\link{scales}} * 1 /(2 \code{pi} \code{|\link{varcov}|}); if \code{\link{relative}}=FALSE, draws contours at heights given by \code{\link{scales}} directly.
+##' @param relative set to TRUE to draw heights relative to determinant of \code{\link{varcove}}. See parameter \code{\link{scales}}.
+##' @param over set to FALSE to draw new plot; TRUE to overplot existing plot
+##' @param xlim limits of x axis if \code{\link{over}}=FALSE
+##' @param ylim limits of y axis if \code{\link{over}}=FALSE
+##' @export
+##' @examples 
+##' mat1=rbind(c(3,-1),c(-1,2));
+##' mat2=rbind(c(1,0.8),c(0.8,1))
+##' plotvdist(mat1,c(1,1),xlim=c(-5,5),ylim=c(-5,5),over=FALSE,col="red")
+##' plotvdist(mat2,c(0,0),over=TRUE)
+##' abline(h=0,lty=2); abline(v=0,lty=2)
+
+plotvdist=function(varcov=diag(2), m=c(0,0), scales= (2^(-(1:5))),relative=TRUE,over=TRUE,xlim=NULL,ylim=NULL, ...) {
+  if (det(varcov)<0) stop("Covariance matrix must be positive definite")
+  
+  if (relative) scales=scales* (1/(6.282*det(varcov))) # transform 'scales' relative to covariance matrix
+  
+  if (!over) {
+    if (is.null(xlim)) {
+      xmax=sqrt(-2*(varcov[1,1]^2)*log(2*3.141592*min(scales)))
+      xlim=c(-xmax,xmax)
+    }
+    if (is.null(ylim)) {
+      ymax=sqrt(-2*(varcov[2,2]^2)*log(2*3.141592*min(scales)))
+      ylim=c(-ymax,ymax)
+    }
+    plot(0,0,type="n",xlab=expression(paste("|Z"[d],"|")),ylab=expression(paste("|Z"[a],"|")),xaxs="i",yaxs="i",xlim=1.1*xlim,ylim=1.1*ylim,...)
+  }  
+  dt=det(varcov)
+  yv=-2*dt*log(2*3.1415*sqrt(dt)*scales) # x sigma^-1 xT has to take these values for the pdf height to have the values 'scales'
+  
+  a=varcov[2,2]
+  b=varcov[1,1]
+  
+  r=varcov[1,2];
+  
+  if (!(r==0)) {
+    if (!(a==b)) {
+      phi= 0.5*atan(2*r/(b-a)) # angle of rotation
+    } else phi=3.14159/4
+    ax1=a+b+(r/sin(2*phi)) # axis 1 length
+    ax2=a+b-(r/sin(2*phi)) # axis 2 length
+    
+    c0=max(ax1,ax2); ax1=ax1/c0; ax2=ax2/c0 # normalise
+    
+    Q=((b-a) + sqrt((b-a)^2 + 4*r^2))/(2*r)
+    dl=(Q^2+1)/(a*Q^2 - 2*Q*r + b)
+    
+    t=(0:100)/(2*3.141)
+    rmat=rbind(c(cos(phi),-sin(phi)),c(sin(phi),cos(phi))) # rotation matrix
+    
+    cd= rmat %*% rbind(sqrt(dl)*ax1*sin(t),sqrt(dl)*ax2*cos(t))
+    
+    for (i in yv) lines(t((cd*sqrt(i)) + m),...)
+    
+  } else { # no covariance
+    
+    t=(0:100)/(2*3.141)
+    
+    for (i in yv) lines(cbind(sqrt(i/a)*sin(t) + m[1],sqrt(i/b)*cos(t) + m[2]),...)
+    
+  }
+}
+
+
+
+
+
+
+##' Plots contour lines of three bivariate normal distributions as determined by \code{\link{pars}}
+##'
+##' @title plotpars
+##' @param pars six element vector (\code{pi0},\code{pi1},\code{tau},\code{sigma1},\code{sigma2},\code{rho})
+
+plotpars=function(pars,over=TRUE,...) {
+  varcov1=diag(2)
+  varcov2=cbind(c(1,0),c(0,pars[4]))
+  varcov3a=cbind(c(pars[3]^2,pars[6]),c(pars[6],pars[5]^2))
+  varcov3b=cbind(c(pars[3]^2,-pars[6]),c(-pars[6],pars[5]^2))
+  
+  if (!over) plot(0,0,type="n",xlim=c(-5,5),ylim=c(-5,5),xlab=expression(paste("|Z"[d],"|")),ylab=expression(paste("|Z"[a],"|")),xaxs="i",yaxs="i")
+  
+  plotvdist(varcov1,col="black",lty=3,over=TRUE,...)  
+  plotvdist(varcov2,col="blue",lty=3,over=TRUE,...)  
+  plotvdist(varcov3a,col="red",lty=3,over=TRUE,...)  
+  plotvdist(varcov3b,col="red",lty=3,over=TRUE,...)  
+}
+
+
+
+
+
+
+
+##' Compute gradient of pseudo-log likelihood for a dataset at given parameters
+##' 
+##' @title grad_logl
+##' @param Z an n x 2 array; Z[i,1], Z[i,2] are the \eqn{Z_{d}}{Z_d} and \eqn{Z_{a}}{Z_a} scores respectively for the \eqn{i}th SNP
+##' @param pars vector containing initial values of (\code{pi0},\code{pi1},\code{tau},\code{sigma1},\code{sigma2},\code{rho}).
+##' @param weights SNP weights to adjust for LD; output from LDAK procedure
+##' @param C a term \eqn{C*log(}\code{pi0}*\code{pi1}*\code{pi2}\eqn{)} is added to the likelihood so the model is specified.
+##' @return Vector of partial derivatives of pseudo-log-likelihood with respect to each of the parameters in \code{\link{pars}}
+##' @export
+##' @author James Liley
+##' @examples
+##' nn=100000
+##' Z=abs(rbind(rmnorm(0.8*nn,varcov=diag(2)), rmnorm(0.15*nn,varcov=rbind(c(1,0),c(0,2^2))), rmnorm(0.05*nn,varcov=rbind(c(3^2,2),c(2,4^2))))); weights=runif(nn)
+##' grad(Z,pars=c(0.7,0.2,2.5,1.5,3,1),weights=weights,C=1)
+##' yy$pars
+##' plot(yy,rlim=2)
+
+grad_logl = function(Z,pars,weights=rep(0,dim(Z)[1]),C=1) {
+  
+  # various error handlers
+  if ((length(dim(Z))!=2) | (dim(Z)[1]!=length(weights))) stop("Z must be an n x 2 matrix, and 'weights' must be of length n")
+  if (dim(Z)[2]!=2) stop("Z must be an n x 2 matrix")
+  if (length(pars)!=6) stop("Parameter 'pars' must be a six-element vector containing values of (in order) pi0, pi1, tau, sigma1, sigma2, and rho")
+  if (pars[1]>=1 | pars[2]>=1 | pars[1]<=0 | pars[2]<=0 | pars[1]+pars[2]>=1) stop("Values of pi0, pi1, and pi2 (pars[1],pars[2],1-pars[1]-pars[2]) must all be between 0 and 1")
+  if (min(pars[3:5])<=0 | pars[6]<0) stop("The value of rho (pars[6]) must be nonnegative and values of tau, sigma1, and sigma2 (pars[3:5]) must be positive")
+  if (pars[6]>pars[3]*pars[5]) stop("The covariance matrix (sigma1^2 rho \\ rho sigma2^2) must be positive definite (rho < sigma1*sigma2)")
+  
+  pi0=pars[1]; pi1=pars[2]; pi2=1-pars[1]-pars[2]
+  tau=pars[3];
+  s1=pars[4]
+  s2=pars[5]
+  rho=pars[6]
+  
+  lh1=function(Z) (1/(2*3.141))*exp(-0.5*(Z[,1]^2 + Z[,2]^2))
+  lh2=function(Z,s1) (1/(2*3.141*s1))*exp(-0.5*(Z[,1]^2 +(Z[,2]/s1)^2))
+  lh3s=function(Z,tau,s2,rho) {
+    D=((s2*tau)^2) - (rho^2)
+    (1/(4*3.141*sqrt(D))) *(
+      exp(-((s2*Z[,1])^2 + (tau*Z[,2])^2 - (2*rho*Z[,1]*Z[,2]) )/(2*D)) )
+  } # only half of lh3;
+  
+  D=(tau*s2)^2 - rho^2
+  l1=lh1(Z)
+  l2=lh2(Z,s1)
+  l3a=lh3s(Z,tau,s2,rho)
+  l3b=lh3s(Z,tau,s2,-rho)
+  l3=l3a+l3b
+  
+  ls=(pi0*l1)+(pi1*l2)+(pi2*(l3a+l3b))
+  
+  dpi0=sum(weights* ((l1-l3)/ls) )  + (C*(-pi0*pi1 + pi2*pi1)/(pi0*pi1*pi2)) # d(logL)/d(pi0)
+  dpi1=sum(weights* ((l2-l3)/ls) ) + (C*(-pi0*pi1 + pi2*pi0)/(pi0*pi1*pi2))# d(logL)/d(pi1)
+  
+  ds1=sum(weights*pi[2]*l2*( ((Z[,2]^2)/(s1^3)) - (1/s1) )/ls)
+  
+  ds2=sum(weights*(
+    pi2*l3*( - ((s2*(tau^2))/D) +
+               (((s2*(tau^4)*(Z[,2]^2))+(s2*(rho^2)*(Z[,1]^2)))/(D^2))) +
+      pi2*(l3b-l3a)*((2*s2*(tau^2)*rho*Z[,1]*Z[,2])/(D^2))
+  )/ls)
+  
+  dtau=sum(weights*(
+    pi2*l3*( - ((tau*(s2^2))/D) +
+               (((tau*(s2^4)*(Z[,1]^2))+(tau*(rho^2)*(Z[,2]^2)))/(D^2))) +
+      pi2*(l3b-l3a)*((2*tau*(s2^2)*rho*Z[,1]*Z[,2])/(D^2))
+  )/ls)
+  
+  drho=sum(weights*(
+    pi2*l3*( (rho/D) -(((tau^2)*(Z[,2]^2)*rho)/(D^2)) - (((s2^2)*(Z[,1]^2)*rho)/(D^2)) ) +
+      pi2*(l3a-l3b)*( ((2*Z[,1]*Z[,2]*(rho^2))/(D^2)) + (Z[,1]*Z[,2]/D))
+  )/ls )
+  
+  c(dpi0,dpi1,dtau,ds1,ds2,drho)
+}
+
+
+
+
+##' Plot \eqn{Z_{a}}{Z_a} and \eqn{Z_{d}}{Z_d} scores efficiently, blocking out dense region near origin.
+##' 
+##' @title plotZ
+##' @param Z an n x 2 array; Z[i,1], Z[i,2] are the \eqn{Z_{d}}{Z_d} and \eqn{Z_{a}}{Z_a} scores respectively for the \eqn{i}th SNP
+##' @param rlim block out circle of radius \code{\link{rlim}}; only plot points with \eqn{Z_{d}^{2} + Z_{a}^{2} > \texttt{rlim}^{2}}{Z_d^2 + Z_a^2 > rlim^2}.
+##' @param col colour of points or vector describing colour of each point of \code{\link{Z}}
+##' @param mcol colour of middle blocked-out region; defaults to first element of \code{\link{col}}
+##' @param abs set to TRUE to plot only upper right quadrant
+##' @param over set to TRUE to plot over existing plot; FALSE to draw new plot.
+##' @export
+##' @author James Liley
+##' @examples
+##' nn=100000
+##' Z=abs(rbind(rmnorm(0.8*nn,varcov=diag(2)), rmnorm(0.15*nn,varcov=rbind(c(1,0),c(0,2^2))), rmnorm(0.05*nn,varcov=rbind(c(3^2,2),c(2,4^2)))));
+##' plotZ(Z,rlim=2,col="red",cex=0.5)
+plotZ = function(z_ad,rlim=quantile(z_ad[,2],0.99),col=rep("black",dim(z_ad)[1]),mcol=NULL,abs=(min(z_ad)<0),over=FALSE,...) {
+  require(plotrix)
+  if (length(col)==1) {
+    col=rep(col,dim(z_ad)[1])
+  }
+  
+  if (is.null(mcol)) mcol=col[1]
+  
+  wx=which(!is.na(z_ad[,1]+z_ad[,2]))
+  z_ad=z_ad[wx,]; col=col[wx]
+  
+  ww=which(z_ad[,1]^2 + z_ad[,2]^2 > rlim^2); nw=setdiff(1:dim(z_ad)[1],ww)
+  Z=z_ad[ww,]
+  if (abs) xl=expression(paste("|Z"[d],"| (between subgroups)")) else xl=expression(paste("Z"[d]," (between subgroups)"));
+  if (abs) yl=expression(paste("|Z"[a],"| (case vs control)")) else yl=expression(paste("Z"[a]," (case vs control)"))
+  #  if (abs) {
+  #    xlim=c(0,1.05*max(Z[,1])); ylim=c(0,1.05*max(Z[,2]))
+  #  } else {
+  #    xlim=1.05*range(Z[,1]); ylim=1.05*range(Z[,2])
+  #  }
+  if (!over) {
+    plot(Z,xaxs="i",yaxs="i",xlab=xl,ylab=yl,col=col[ww],...)
+    draw.ellipse(0,0,rlim,rlim,col=mcol,border=mcol)
+  } else {
+    points(Z,col=col[ww],...)
+    draw.ellipse(0,0,rlim,rlim,col=mcol,border=mcol)
+  }
+}
+
+
+
+##' Finds a weighted correlation of two vectors \code{\link{x}} and \code{\link{y}}
+##' 
+##' Weighting procedure is equivalent to counting value \code{\{\link{x}[i],\link{y}[i]\}} with multiplicity \code{\link{weights}[i]}
+##' 
+##' @title wcor
+##' @param x first vector
+##' @param y second vector of same length as \code{\link{x}}
+##' @param weights vector of weights of same length as \code{\link{x}} and \code{\link{y}}
+##' @export
+##' @author James Liley
+##' @examples
+##' nn=100000
+##' x=(1:10)/10 +runif(10); y=(1:10)/10 +runif(10)
+##' mult=c(1:3,4:6,4:6,7:10,7:10,7:10); weights=c(1,1,1,2,2,2,3,3,3,3)
+##' print(c(cor(x[mult],y[mult]),wcor(x,y,weights=weights)))
+wcor=function(x,y,weights=rep(1,length(x))) {
+  wmx= sum(weights*x)/sum(weights) # weighted mean of X
+  wmy= sum(weights*y)/sum(weights)
+  wsx= sqrt(sum(weights*((x-wmx)^2))) # weighted standard deviation of X, omitting correcting factor (which cancels)
+  wsy= sqrt(sum(weights*((y-wmy)^2))) 
+  cvxy=sum(weights*(x-wmx)*(y-wmy))
+  cvxy/(wsx*wsy)
+}
+
+
+
+
+##' Determine correlation induced by adjusting Z scores for discrepancy in subgroup frequency
+##' 
+##' If a particular sub-trait within a disease has a frequency of \eqn{v} in the population, but is comparatively oversampled (or undersampled) in the case group to a frequency \eqn{n}, the observed effect size between cases and controls will be biased toward the effect size in the oversampled subgroup, compared to an observed effect size in a study where the subgroup frequency matches that of the population.
+##' 
+##' This can be corrected for by computing \eqn{Z_a' = Z_a + (v-n)Z_d}. However, this induces a systematic non-zero covariance between \eqn{Z_a} and \eqn{Z_d}.   
+##' 
+##' This function evaluates the resultant covariance
+##' 
+##' @title syscov
+##' @param v the proportion of subgroup 1 in the population
+##' @param n1 number of samples of subgroup 1
+##' @param n2 number of samples of subgroup 2
+##' @param nc number of controls
+##' @return estimated covariance
+##' @export
+##' @author Chris Wallace and James Liley
+##' @examples
+##' n1=100; n2=500; nc=1000; v=0.8
+##' M=runif(1000,0,0.5) # population MAFs at 1000 SNPs
+##' G1=rbinom(1000,2*n1,M)/(2*n1) # observed MAF at n1 (diploid) samples in subgroup 1
+##' G2=rbinom(1000,2*n2,M)/(2*n2) # observed MAF at n2 (diploid) samples in subgroup 2
+##' Gc=rbinom(1000,2*nc,M)/(2*nc) # observed MAF at nc (diploid) controls
+##' Xd= G1 - G2 # adjusted MAF differences between case and control group 
+##' Xa= (v*G1 + (1-v)*G2) - Gc # adjusted MAF differences between case and control group 
+##' Zd= Xd/sqrt(M*(1-M)*(1/(2*n1) + 1/(2*n2))) # Z score, subgroup 1 vs subgroup 2
+##' Za= Xa/sqrt(M*(1-M)*((v^2)/(2*n1) + ((1-v)^2)/(2*n2) + 1/(2*nc)))
+##' 
+##' cov(Zd,Za)
+##' syscov(v,n1,n2,nc)
+syscov=function(v,n1,n2,nc) {
+  (v*n2 - (1-v)*n1)/(sqrt(n1+n2)*sqrt( (v^2)*n2 + ((1-v)^2)*n1 + (n1*n2/nc)))
+}
+
+
+
+##' Fit a specific one-dimensional Gaussian mixture distribution to weighted SNP data
+##' 
+##' \deqn{
+##'   pdf(Z) = \pi_{0} N(0,1) + (1-\pi_{0}) N(0,s^{2})
+##'  }{
+##'   Z_a,Z_d ~ pi0 N(0,1) + (1-pi0) N(0,s^2)
+##'  }
+##' 
+##' The model is characterised by the vector \code{\link{pars}}=(\code{pi0},\code{s}). Under the null hypothesis that all SNPs are null, pi0=0.5, s=1.
+##' 
+##' This function finds the maximum pseudo-likelihood estimators for the paramaters of these three Gaussians, and the mixing parameters representing the proportion of SNPs in each category.
+##' 
+##' @title fit.2g
+##' @param Z a vector of length n
+##' @param pars vector containing initial values of \code{pi0}, \code{s}.
+##' @param weights SNP weights to adjust for LD; output from LDAK procedure
+##' @param C a term \eqn{C log(}\code{pi0}*\code{1-pi0}\eqn{)} is added to the likelihood so the model is specified.
+##' @param sgm force \code{s} \eqn{\ge sgm}
+##' @param ... other parameters passed to R's \code{\link{optim}} function
+##' @return a list of three objects: \code{pars} is the vector of fitted parameters under H1, \code{h1value} is the pseudo-likelihood under H1, \code{h0value} is the pseudolikelihood under H0.
+##' @export
+##' @author Chris Wallace and James Liley
+##' @examples
+##' nn=100000
+##' Z=c(rnorm(0.8*nn), rnorm(0.2*nn,sd=3)); weights=runif(nn)
+##' yy=fit.2g(Z,pars=c(0.5,1),weights=weights)
+##' yy$pars
+fit.2g= function(Z,pars=c(0.5,1),weights=rep(1,length(Z)),C=1,sgm=0,...) {
+
+# error handlers
+pars=as.numeric(pars)
+Z=as.numeric(Z)
+if ((length(dim(Z))>1) | (length(Z)!=length(weights))) stop("Z must be a one-dimensional numeric vector, and 'weights', if set, must be of the same length as Z")
+if (length(pars)!=2) stop("Parameter 'pars' must be a two-element vector containing values pi0, s")
+if (pars[1]>=1 | pars[1]<= 0 | pars[2]<= sgm) stop("Initial value of pi0 must all be between 0 and 1 and initial value of s must be greater than 0 (or sgm if set)")
+
+w=which(!is.na(Z*weights)); Z=Z[w]; weights=weights[w]
+
+l2=function(pars=c(0.5,1),C=1) -(sum(weights*log(pars[1]*dnorm(Z,sd=1) + (1-pars[1])*dnorm(Z,sd=pars[2]))) + C*log(pars[1]*(1-pars[1])))
+
+zx=optim(pars,function(p) l2(p,C),lower=c(1e-5,sgm),upper=c(1-(1e-5),10),method="L-BFGS-B",control=list(factr=1e1),...)
+
+h1=-zx$value; h0=-l2()
+yy=list(pars=zx$par,h1value=h1,h0value=h0,lr=h1-h0)
+
+return(yy)
+}
+
+
+

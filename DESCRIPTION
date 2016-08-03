@@ -1,10 +1,10 @@
 Package: Subtest
-Type: Package
-Title: Implements methods to test whether two putative subtypes of a disease phenotype show evidence of differential genetic basis.
-Version: 1.0
-Date: 2015-10-08
-Author: James Liley and Chris Wallace
-Maintainer: James Liley <ajl88@cam.ac.uk>
-Description: An important consideration in genomic analysis is the question of whether disease heterogeneity arises from differences in genetic causality or differences in environment. Furthermore, accounting for genetically-driven disease heterogeneity can strengthen the ability to detect disease-causative variants. The question of whether putative subtypes of a disease phenotype have differential genetic basis can be addressed by analysis of appropriate SNP case-control data. This package implements a proposed method and generates supporting data. Broadly, the package performs four main functions: generation of Z scores, fitting of models, assessment of models by simulation of random subtypes, and analysis of single SNPs. Input is a SnpMatrix object (package SnpStats) which has been quality-controlled and either pruned to minimal linkage disequilibrium between SNPs or had weights calculated by the LDAK algorithm (http://dougspeed.com/ldak/). Output includes a p-value for the evidence of differential genetic basis in subgroups (under the null hypothesis of independence of causative basis of disease heterogeneity and disease causality) and information about the behaviour of random subgroups under the same test. Fitted values give some indication of the genetic architecture of the disease; namely the approximate proportions of null SNPs and SNPs which are disease-causative without differentiating subtypes, and the (multivariate) distribution of effect sizes of causative SNPs. Further information can be found in the pending publication.
-
-banana banana
+Title: What the Package Does (one line, title case)
+Version: 0.0.0.9000
+Authors@R: person("First", "Last", email = "first.last@example.com", role = c("aut", "cre"))
+Description: What the package does (one paragraph).
+Depends:
+    R (>= 3.2.3)
+License: What license is it under?
+LazyData: true
+RoxygenNote: 5.0.1

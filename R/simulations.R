@@ -10,7 +10,7 @@
 ##' @param weights SNP weights to adjust for LD; output from LDAK procedure
 ##' @param Ca matrix of covariates for computing Z_a; Ca[i,] gives the covariates for sample i corresponding to X[i,]
 ##' @param Cd matrix of covariates for computing Z_d; Cd[i,] gives the covariates for sample i corresponding to X[i,]. CD[i,] is ignored unless Ya[i]>0. 
-##' @param n0 optionally, only simulate subtypes such that the smaller subtype has size n0. If n0 is null, use random subgroup sizes with the smaller subtype has between 10% and 50% of total cases.
+##' @param n0 optionally, only simulate subtypes such that the smaller subtype has size n0. If n0 is null, use random subgroup sizes with the smaller subtype has between 10\% and 50\% of total cases.
 ##' @param Yd optionally choose random subtyping by randomly sorting 'true' Yd. This is the best option for quantitative traits Yd. Supercedes n0 if set. 
 ##' @param file set to a directory where output of the simulation will be saved. The output file is small but the simulation is likely to be repeated multiple times. If file is null, print output of the simulation to console.
 ##' @param seed random seed for computing random subtypes. Can be used to reconstruct simulation. By default, chosen by time.
@@ -18,8 +18,7 @@
 ##' @export
 ##' @author James Liley
 ##' @examples
-##' # pending
-
+##' 1+1 # pending
 rand_gen=function(X,Z_a,pars_init1=c(0.8,0.15,2,1,2,1),pars_init0=c(0.8,0.15,2,2,1,0),weights=rep(1,length(Z_a)),Ca=NULL,Cd=NULL,n0=NULL,Yd=NULL, file=NULL,seed=NULL,...) {
 
 # Error handlers
@@ -151,7 +150,7 @@ if (is.character(sims) & (length(sims)==1)) {
 
 sims=pars
 
-if (dim(sims)[2]!=18) stop("Each file or row of simulation matrix must have a single line with 18 elements; in order, the PL under H1, the PL under H0, the correction for Za, the number of iterations of the EM algorithm in the full and null models, the random seed, the paramaters of the full model, and the parameters of the null model.")
+if (dim(sims)[2]<18) stop("Each file or row of simulation matrix must have a single line with 18 elements; in order, the PL under H1, the PL under H0, the correction for Za, the number of iterations of the EM algorithm in the full and null models, the random seed, the paramaters of the full model, and the parameters of the null model.")
 
 wnc=which(sims[,4]<maxit & sims[,5]<maxit)
 if (length(wnc)<dim(sims)[1]) message(paste0(dim(sims)[1]-length(wnc)," simulations removed due to non-convergence"))
@@ -182,7 +181,7 @@ return(list(pars1=xpars1,pars0=xpars0))
 ##' Given outputs of fitted parameters and likelihoods from random subtypes, analyse outcomes in order to compute p-values by extrapolation or interpolation.
 ##'
 ##' @title rand_analysis
-##' @param sims either a matrix of outputs from sim_gen, a directory, or a list of files.
+##' @param sims either a matrix of outputs from sim_gen, a directory and file basename, or a list of files.
 ##' @param maxit if the E-M algorithm uses the maximum allowed number of iterations, it may not have converged. Set this parameter to restrict to only simulations taking fewer than this number of iterations.
 ##' @export
 ##' @author James Liley
@@ -195,7 +194,7 @@ rand_analysis=function(sims,maxit=1e4) {
 # error handlers
 if (!(is.matrix(sims)|is.data.frame(sims)|is.character(sims))) stop("Parameter sims must be a matrix, a list of files, or a directory containing simulation output results")
 if (is.character(sims)) {
-  if (length(sims)==1 && !file.exists(sims)) stop(paste0("Directory ",sims," not found"))
+  if (length(sims)==1 && !file.exists(dirname(sims))) stop(paste0("Directory ",sims," not found"))
   if (length(sims)>1) for (i in 1:length(sims)) if (!file.exists(sims[i])) stop(paste0("File ",sims[i]," not found"))
 }  
   
@@ -205,12 +204,12 @@ if (is.character(sims) & length(sims)>1) {
   for (i in 1:length(sims)) X=rbind(X,read.table(sims[i]))
 }
 if (is.character(sims) & (length(sims)==1)) {
-  files=list.files(sims,pattern="sim*")
+  files=list.files(dirname(sims),pattern=paste0("^",basename(sims),"*"),full.names=TRUE)
   X=c()
-  for (i in 1:length(files)) X=rbind(X,read.table(paste0(sims,"/",files[i])))
+  for (i in 1:length(files)) X=rbind(X,read.table(files[i]))
 }
 
-if (dim(X)[2]!=18) stop("Each file or row of simulation matrix must have a single line with 18 elements; in order, the PL under H1, the PL under H0, the correction for Za, the number of iterations of the EM algorithm in the full and null models, the random seed, the paramaters of the full model, and the parameters of the null model.")
+if (dim(X)[2]!=18) stop("Each file or row of simulation matrix must have a single line with 18 elements; in order, the PL under H0, the PL under H1, the correction for Za, the number of iterations of the EM algorithm in the full and null models, the random seed, the paramaters of the full model, and the parameters of the null model.")
 
 wnc=which(X[,4]<maxit & X[,5]<maxit)
 if (length(wnc)<dim(X)[1]) message(paste0(dim(X)[1]-length(wnc)," simulations removed due to non-convergence"))
@@ -267,7 +266,9 @@ print.sim_output=function(yy) {
 
 
 ##' Summary method for class sim_output
+##'
 ##' @param yy object of class sim_output; generally output from sim_analysis
+##'
 ##' @author James Liley
 summary.sim_output = function(yy) {
   cat("Fitted values\n")
@@ -313,11 +314,13 @@ summary.sim_output = function(yy) {
 }
 
 ##' Plot method for class sim_output. Plots the values of PLR in ascending order along with mixture chi-squared distribution, and a Q-Q plot comparing the two. Sets global variables X,Y where (X,Y) are the points on the Q-Q plot.
+##'
 ##' @param yy object of class sim_output; generally output from sim_analysis
 ##' @param QQ set to TRUE to only draw QQ plot, FALSE to only draw chi-squared plot, or NULL to draw both.
-##' @param conf set to TRUE to draw a 95% confidence interval on the Q-Q plot. Confidence intervals are constructed by repeatedly randomly sampling from a mixture chi-squared distribution parametrised by yy$gamma and yy$kappa. For the random sample, the best-fit values of gamma and kappa (gamma' and kappa') are recovered, and the random sample is compared to the fitted mixture-chi square parametrised by gamma' and kappa'. Finally, standard errors are estimated empirically at each quantile. Computing limits is slow, so if this option is TRUE, global variables lb and ub are set, where (X, lb), (X,ub) are the co-ordinates of the lower and upper confidence limits. 
+##' @param conf set to TRUE to draw a 95\% confidence interval on the Q-Q plot. Confidence intervals are constructed by repeatedly randomly sampling from a mixture chi-squared distribution parametrised by yy$gamma and yy$kappa. For the random sample, the best-fit values of gamma and kappa (gamma' and kappa') are recovered, and the random sample is compared to the fitted mixture-chi square parametrised by gamma' and kappa'. Finally, standard errors are estimated empirically at each quantile. Computing limits is slow, so if this option is TRUE, global variables lb and ub are set, where (X, lb), (X,ub) are the co-ordinates of the lower and upper confidence limits. 
 ##' @param q95 set to TRUE to draw lines on the plot corresponding to empirical type 1 error if generating a significance cutoff from mixture-chi squared corresponding to p<0.05.
 ##' @param ... additional parameters passed to plot
+##' @export 
 ##' @author James Liley
 plot.sim_output=function(yy,QQ=NULL, conf=FALSE,q95=FALSE,...) {
 
@@ -326,11 +329,11 @@ if ((!is.null(QQ) & !is.logical(QQ)) | !is.logical(conf)) stop ("Parameters QQ a
 
 plr=yy$plr
 N=length(plr)
-NN=10000; n0=round(NN*length(which(plr==0))/length(plr)); n1=round(yy$kappa*NN); n2=NN-n0-n1
+NN=10000; n0=round(NN*length(which(plr==0))/length(plr)); n1=min(round(yy$kappa*NN),NN-n0-1); n2=NN-n0-n1
 ya=yy$gamma*sort(c(rep(0,n0),qchisq((1:n1)/(1+n1),df=1),qchisq((1:n2)/(1+n2),df=2))); ya0=quantile(ya,(1:N)/(1+N))
 
 if (is.null(QQ) || !QQ) {
- plot((1:N)/(1+N),sort(plr),xlab="Relative rank",ylab="PLR",...); lines((1:NN)/(1+NN),ya,lwd=2,col="red")
+ plot((1:N)/(1+N),sort(plr),xlab="Relative rank",ylab="PLR'",...); lines((1:NN)/(1+NN),ya,lwd=2,col="red")
  legend(0.2,0.8*max(plr),c("Observed",expression(paste("Mixture ",chi^2))),pch=c(1,45),col=c("black","red"),bty="n")
 }
 
@@ -340,7 +343,7 @@ if (is.null(QQ)) {
 }
 
 if (is.null(QQ)|| QQ) {
- plot(ya0,sort(plr),type="n",xlab=expression(paste("Expected quantile (mixture-",chi^2,")")),ylab="Observed PLR",xaxs="i",yaxs="i",...); abline(0,1,col="red",lwd=3)
+ plot(ya0,sort(plr),type="n",xlab=expression(paste("Expected quantile (mixture-",chi^2,")")),ylab="Observed PLR'",xaxs="i",yaxs="i",...); abline(0,1,col="red",lwd=3)
  
  if (conf) { # draw confidence limits
    if (!exists("lb")|!exists("ub")||!is.numeric(lb)||!is.numeric(ub)||length(lb)!=length(plr)||length(ub)!=length(plr)) { # ie, if lb and ub are not already set.
@@ -367,7 +370,8 @@ if (is.null(QQ)|| QQ) {
    polygon(c(ya0,max(ya0),ya0[length(ya0):1]),c(lb,max(ya0),ub[length(ub):1]),col="grey",border=NA)
  }
  
- points(ya0,sort(plr),cex=0.5); abline(0,1,col="red",lwd=3)
+ points(ya0,sort(plr),cex=0.5); 
+ abline(0,1,col="red",lwd=3)
  X<<- ya0; Y<<- sort(plr)
  if (q95) {
    qx=quantile(ya0,0.95); qy=sort(plr)[length(which(ya0<qx))]
@@ -375,7 +379,7 @@ if (is.null(QQ)|| QQ) {
    abline(h=qy,lty=2,col="blue")
    text(0.5*(qx+max(ya0)),0.8*qy,paste0("Obs. type 1 err: ",signif(length(which(plr>qx))/length(plr),3)))
  }
- legend(0.2,0.8*max(plr),c("Observed",expression(paste("Mixture-",chi^2))),pch=c(1,45),col=c("black","red"),bty="n") 
+ legend(0.2,0.8*max(plr),c("Observed",expression(paste("Mixture-",chi^2))),pch=c(1,45),col=c("black","red"),bg="white") #,bty="n") 
 
 }
 }
@@ -396,7 +400,7 @@ if (is.null(QQ)|| QQ) {
 ##' p_mixchi(10,gamma,kappa)
 p_value=function(x,S=NULL) {
 
-if (is.null(S)) p_mixchi(x) else { # if S is null, p_mixchi will throw a warning message because gamma and kappa are not set
+if (is.null(S)) out=p_mixchi(x) else { # if S is null, p_mixchi will throw a warning message because gamma and kappa are not set
 out=rep(1,length(x))
 out[which(x<=0)]=1
 
@@ -415,8 +419,8 @@ if (length(w3)>0) {
   out[w3]=pbind(x[w3],S=S)
   out[w3][which(out[w3]>p_mixchi(cut2,S=S))]=p_mixchi(cut2,S=S) # ensure p value is a non-increasing function of PLR.
 }
-}
 
+}
 return(out)
 }
 
@@ -453,6 +457,7 @@ if (is.null(gamma) & is.null(kappa)) {
   } else {
     gamma=0.5 # default value
     kappa=0.5
+    if (is.null(p0)) p0=0
     warning("Parameters gamma and kappa not set. P value will be unreliable")
   }
 }

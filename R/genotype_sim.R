@@ -1,20 +1,22 @@
 # Simulate genotypes at a set of autosomal SNPs for a phenotype satisfying the assumptions of either H1 or H0.
 
-##' Simulate a matrix of genotypes following a set of model parameters. Sets global variable pars_true containing 'true' parameter values, and or_true containing details of underlying odds ratio distribution.
+##' Simulate a matrix of genotypes following a set of model parameters. 
+##' 
+##' Sets global variable \code{\link{pars_true}} containing 'true' parameter values, and \code{\link{or_true}} containing details of underlying odds ratio distribution.
 ##' 
 ##' @title sim_genotypes
 ##' @param n_snps number of SNPs
 ##' @param n_control number of controls
 ##' @param n_case two-element vector; number of cases in subtypes 1 and 2
-##' @param pars expected observed parameter values. If NULL, values are chosen randomly; pi0 from c(0.1,0.01,0.001),1), pi1 from c(0.2,0.1,0.05); if parameter q2SEd is null, q2SEd from c(1,1.2,1.5,2); if parameter q2SEa is null, q2SEa1 from c(1.2,1.5,2); if parameter q2SEa is null and null_model==FALSE, q2SEa2 from c(1.2,1.5,2); if parameter rho is null and null_model==TRUE, rho from c(0, 0)
-##' @param q2SEd 97.5% quantile (ie, +2SD) of population odds-ratios for subtype-differentiating SNPs. Corresponds to 'tau' in pars and overrides tau if set.
-##' @param q2SEa1 97.5% quantile (ie, +2SD) of population odds-ratios for disease-causative SNPs which do NOT differentiate subtypes (group 2). Corresponds to sigma_1 and overrides sigma_1 if set.
-##' @param q2SEa2 97.5% quantile (ie, +2SD) of population odds-ratios for disease-causative SNPs which DO differentiate subtypes (group 3). Corresponds to sigma_2 and overrides sigma_2 if set.
-##' @param cor_st correlation, NOT covariance, between s2 and tau. Overrides pars if set.
+##' @param pars expected observed parameter values. If NULL, values are chosen randomly; \code{pi0} from c(0.1,0.01,0.001),1), \code{pi1} from c(0.2,0.1,0.05); \code{q2SEd} from c(1,1.2,1.5,2); \code{q2SEa1} from c(1.2,1.5,2); (if \code{\link{null_model}}==FALSE) \code{q2SEa2} from c(1.2,1.5,2); and \code{rho} from c(0,0.1,0.5).
+##' @param q2SEd 97.5\% quantile (ie, +2SD) of population odds-ratios for subtype-differentiating SNPs. Corresponds to \code{tau} in \code{\link{pars}} and overrides \code{\link{pars}} if set.
+##' @param q2SEa1 97.5\% quantile (ie, +2SD) of population odds-ratios for disease-causative SNPs which do NOT differentiate subtypes (category 2). Corresponds to \code{sigma_1} in \code{\link{pars}} and overrides \code{\link{pars}} if set.
+##' @param q2SEa2 97.5\% quantile (ie, +2SD) of population odds-ratios for disease-causative SNPs which DO differentiate subtypes (category 3). Corresponds to \code{sigma_2} in \code{\link{pars}} and overrides \code{\link{pars}} if set.
+##' @param cor_st correlation (as opposed to covariance) between \code{sigma2} and \code{tau}. Overrides \code{\link{pars}} if set.
 ##' @param seed random seed; if NULL is set to clock time
 ##' @param return_matrix if TRUE, returns a SNP matrix, otherwise returns Z_a and Z_d scores
-##' @param null_model if pars=NULL and other parameters are null, parameters are chosen randomly. If null_model=TRUE, parameters are chosen from H0, otherwise H1.
-##' @return either object of type SnpMatrix, in which indices are in order controls, case subtype 1, case subtype 2; or Z_d and Z_a scores in an n x 2 matrix (Z[,1]=Z_d, Z[,2]=Z_a). Global variable pars_true contains 'true' values of parameters of Z_a, Z_d distribution and can be used to start the fitting algorithm. Global variable or_true contains values (pi0,pi1,q2SEd,q2SEa1,q2SEa2,cor_st)
+##' @param null_model if \code{\link{pars}}=NULL and other parameters are null, parameters are chosen randomly. If \code{\link{null_model}}=TRUE, parameters are chosen from H0, otherwise H1.
+##' @return Either object of type SnpMatrix, in which indices are, in order: controls, case subtype 1, case subtype 2; or \eqn{Z_{d}}{Z_d} and \eqn{Z_{a}}{Z_a} scores in an n x 2 matrix, with Z[,1]=Z_d, Z[,2]=Z_a. Global variable \code{\link{pars_true}} contains 'true' values of parameters of \eqn{Z_{a}}{Z_a}, \eqn{Z_{d}}{Z_d} distribution and can be used to start the fitting algorithm. Global variable \code{\link{or_true}} contains values (\code{pi0},\code{pi1},\code{\link{q2SEd}},\code{\link{q2SEa1}},\code{\link{q2SEa2}},\code{\link{cor_st}})
 ##' @export
 sim_genotypes=function(n_snps=5e4,n_control=2000,n_case=c(1000,1000), pars=NULL,q2SEd=NULL,q2SEa1=NULL,q2SEa2=NULL,cor_st=NULL,seed=NULL,return_matrix=FALSE,null_model=TRUE) {
 
@@ -26,7 +28,7 @@ if (is.null(seed)) {
 
 if (!is.numeric(seed)) stop("Parameter seed must be an integer")
 if (!is.numeric(n_case)) stop("Parameter n_case must be either a vector of two integers or a single integer")
-if (!is.null(pars)) if (length(pars)!=6| !is(pars,"numeric")| max(pars[1:2])>1| pars[1]+pars[2]>1| min(pars[1:5])<= 0 | pars[6]==0 | pars[6]>pars[3]*pars[5])
+if (!is.null(pars)) if (length(pars)!=6| !is(pars,"numeric")| max(pars[1:2])>1| pars[1]+pars[2]>1| min(pars[1:5])<= 0 | pars[6]>pars[3]*pars[5])
   stop("Parameter pars must be a six-element vector containing elements (pi0,pi1,tau,sigma_1,sigma_2,rho). The first five elements must be strictly positive and the sixth nonnegative. Parameters pi0 and pi1 must be less than 1 and sum to less than 1. Parameter rho must be less than tau*sigma_2.")
 
 # Set random seed
@@ -55,40 +57,29 @@ pi2=sample(c(0.1,0.02,0.01,0.002,0.001),1) # Randomly choose this
 pi1= sample(c(0.2,0.1,0.05),1) # assume at least half of all SNPs are null
 pi0=1-pi1-pi2
     
-q2SEa1= sample(c(1.1,1.2,1.3,1.5,2),1) # 95% quantile for odds ratios between cases/controls for SNPs in group 2
-q2SEd= sample(c(1.1,1.2,1.3,1.5,2),1) # Same for odds ratios between subtypes for SNPs in group 3
+q2SEa1= sample(c(1.1,1.2,1.3,1.5,2),1) # 95% quantile for odds ratios between cases/controls for SNPs in category 2
+q2SEd= sample(c(1.1,1.2,1.3,1.5,2),1) # Same for odds ratios between subtypes for SNPs in category 3
 
 if (!null_model) {
-  q2SEa2= sample(c(1.1,1.2,1.3,1.5,2),1)  ##### 95% quantile for odds ratios between cases/controls for SNPs in group 3 (only chosen if null_model=FALSE)
+  q2SEa2= sample(c(1.1,1.2,1.3,1.5,2),1)  ##### 95% quantile for odds ratios between cases/controls for SNPs in category 3 (only chosen if null_model=FALSE)
   cor_st=sample(c(0,0.1,0.5),1)
 }
 
-################
-if (runif(1)>0.5) {
-  q2SEa2= sample(c(1.1,1.2,1.3,1.5,2),1)
-  q2SEd= sample(c(1.1,1.3),1) # sample(c(1.1,1.2,1.3,1.5,2),1)
-} else {
-  q2SEa2= sample(c(1.1,1.3),1) # sample(c(1.1,1.2,1.3,1.5,2),1)
-  q2SEd= sample(c(1.1,1.2,1.3,1.5,2),1)
-}
-#############
-
-  
 }
 
 
-n2=round(pi2*n_snps); n1=round(pi1*n_snps); n0=n_snps-n1-n2 # number of SNPs in each group
+n2=round(pi2*n_snps); n1=round(pi1*n_snps); n0=n_snps-n1-n2 # number of SNPs in each category
 
 u_tau=log(q2SEd)/2 # Underlying standard deviation corresponding to tau
 u_s1=log(q2SEa1)/2 # Underlying standard deviation corresponding to sigma_1
 u_s2=log(q2SEa2)/2 # Underlying standard deviation corresponding to sigma_1
 u_rho=cor_st*u_s2*u_tau
 
-u_or0=cbind(rep(0,n0),rep(0,n0)) # Underlying odds ratios for SNPs in group 1 (all 0)
-if (u_s1>0) u_or1=cbind(rep(0,n1),rnorm(n1,sd=u_s1)) else u_or1=cbind(rep(0,n1),rep(0,n1)) # Underlying odds ratios for SNPs in group 2
+u_or0=cbind(rep(0,n0),rep(0,n0)) # Underlying odds ratios for SNPs in category 1 (all 0)
+if (u_s1>0) u_or1=cbind(rep(0,n1),rnorm(n1,sd=u_s1)) else u_or1=cbind(rep(0,n1),rep(0,n1)) # Underlying odds ratios for SNPs in category 2
 if (u_s2>0 & u_tau>0) u_or2=rmnorm(n2,varcov=rbind(c(u_tau^2,u_rho),c(u_rho,u_s2^2))) else {
-  if (u_s2>0) p_s2=rnorm(n2,sd=u_s2) else p_s2=rep(0,n2) # Underlying odds ratios for SNPs in group 3
-  if (u_tau>0) p_tau=rnorm(n2,sd=u_tau) else p_tau=rep(0,n2) # Underlying odds ratios for SNPs in group 3
+  if (u_s2>0) p_s2=rnorm(n2,sd=u_s2) else p_s2=rep(0,n2) # Underlying odds ratios for SNPs in category 3
+  if (u_tau>0) p_tau=rnorm(n2,sd=u_tau) else p_tau=rep(0,n2) # Underlying odds ratios for SNPs in category 3
   u_or2=cbind(p_tau,p_s2)
 }
 u_or=exp(rbind(u_or0,u_or1,u_or2)) # overall underlying odds ratios
@@ -145,14 +136,38 @@ return(cbind(zd,za))
 
 ##' Converts underlying 'population' odds-ratio distribution into corresponding expected value of SD(Z) (ie, tau, sigma_1, or sigma_2). Assume that, across some set of SNPs in, population log-odds ratios between two phenotypes A and B are normally distributed with standard deviation p. If a GWAS is performed between a group of samples with phenotype A of size n1 and a group of samples of phenotype B of size n2, and Z-scores calculated for each SNP, this function returns the corresponding standard deviation for these Z scores.
 ##' 
+##' Can either use a quick quadratic approximation (rapid, but dependent on MAF~U(0,0.5) and potentially inaccurate at small or very different n1,n2, or simulate genotypes (slow but accurate)
+##' 
 ##' @title p2s
 ##' @param p standard deviation of underlying log odds ratio distribution
 ##' @param n1 number of samples in group 1
 ##' @param n2 number of samples in group 2
 ##' @param mafs use to specify distribution of average MAF (across both groups). Default is MAF~U(0.01,0.5)
 ##' @param NS number of SNPs to use in simulation
+##' @param fast use quadratic approximation (TRUE) or simulate genotypes (FALSE)
 ##' @return expected value of observed standard deviation of Z scores.
-p2s=function(p,n1,n2,mafs=NULL,NS=50000) {
+##' @export
+##' @examples 
+##' p_underlying=0.15; # underlying standard deviation of odds-ratio distribution
+##' nsnp=10000; # number of SNPs
+##' n1=500; n2=1000 # number of samples in group 1, group 2
+##' 
+##' ors=exp(rnorm(nsnp,mean=0,sd=p_underlying)); # (simulated) underlying odds ratios
+##' 
+##' pmaf_1=runif(nsnp,0.05,0.5); # (simulated) underlying population minor allele frequencies in group 1
+##' pmaf_2=ors*pmaf_1/(1-pmaf_1+(ors*pmaf_1)) # underlying population minor allele frequencies in group 2
+##' plot(pmaf_2*(1-pmaf_1)/(pmaf_1*(1-pmaf_2)),ors); abline(0,1,col="red") # check
+##' 
+##' omaf_1=(rbinom(nsnp,n1,p=pmaf_1)+rbinom(nsnp,n1,p=pmaf_1))/(2*n1) # (simulated) observed diploid minor allele frequencies in group 1
+##' omaf_2=(rbinom(nsnp,n2,p=pmaf_2)+rbinom(nsnp,n2,p=pmaf_2))/(2*n2) # (simulated) observed diploid minor allele frequencies in group 1
+##' 
+##' test=apply(cbind(omaf_1,omaf_2),1,function(x) prop.test(2*c(n1,n2)*x,2*c(n1,n2))$p.value) # chi-square tests between frequencies under H0: pmaf_1==pmaf_2
+##' 
+##' obs_z=-qnorm(test/2)*sign(omaf_2-omaf_1) # observed Z scores
+##' 
+##' sd(obs_z) # observed SD of Z scores
+##' p2s(p_underlying,n1,n2) # predicted
+p2s=function(p,n1,n2,mafs=NULL,NS=50000, fast=TRUE) {
   
   if (!is.null(mafs) & !is.numeric(mafs)) stop ("Parameter mafs must be a list of minor allele frequencies")
   
@@ -187,6 +202,27 @@ p2s=function(p,n1,n2,mafs=NULL,NS=50000) {
 ##' @param mafs use to specify distribution of average MAF (across both groups). Default is MAF~U(0.01,0.5)
 ##' @param NS number of SNPs to use in simulation
 ##' @return expected value of observed standard deviation of Z scores.
+##' @export
+##' @examples 
+##' p_underlying=0.15; # underlying standard deviation of odds-ratio distribution
+##' nsnp=10000; # number of SNPs
+##' n1=500; n2=1000 # number of samples in group 1, group 2
+##' 
+##' ors=exp(rnorm(nsnp,mean=0,sd=p_underlying)); # (simulated) underlying odds ratios
+##' 
+##' pmaf_1=runif(nsnp,0.05,0.5); # (simulated) underlying population minor allele frequencies in group 1
+##' pmaf_2=ors*pmaf_1/(1-pmaf_1+(ors*pmaf_1)) # underlying population minor allele frequencies in group 2
+##' plot(pmaf_2*(1-pmaf_1)/(pmaf_1*(1-pmaf_2)),ors); abline(0,1,col="red") # check
+##' 
+##' omaf_1=(rbinom(nsnp,n1,p=pmaf_1)+rbinom(nsnp,n1,p=pmaf_1))/(2*n1) # (simulated) observed diploid minor allele frequencies in group 1
+##' omaf_2=(rbinom(nsnp,n2,p=pmaf_2)+rbinom(nsnp,n2,p=pmaf_2))/(2*n2) # (simulated) observed diploid minor allele frequencies in group 1
+##' 
+##' test=apply(cbind(omaf_1,omaf_2),1,function(x) prop.test(2*c(n1,n2)*x,2*c(n1,n2))$p.value) # chi-square tests between frequencies under H0: pmaf_1==pmaf_2
+##' 
+##' obs_z=-qnorm(test/2)*sign(omaf_2-omaf_1) # observed Z scores
+##' 
+##' p_underlying # observed SD of Z scores
+##' s2p(sd(obs_z),n1,n2) # predicted
 s2p=function(s,n1,n2,mafs=NULL,NS=50000) {
   
   if (!is.null(mafs) & !is.numeric(mafs)) stop ("Parameter mafs must be a list of minor allele frequencies")
@@ -205,6 +241,7 @@ s2p=function(s,n1,n2,mafs=NULL,NS=50000) {
 
 
 ##' Given a list of 'population' minor allele frequencies 'mafs' and population odds ratios 'ors', for two groups of size n1, n2 generates lists of MAFs m1, m2 such that
+##' 
 ##' OR(m1,m2)=m1(1-m2)/(m2(1-m1))=ors
 ##' (m1 n1 + m2 n2)/(n1+n2) = mafs
 ##' 

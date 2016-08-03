@@ -190,7 +190,6 @@ getpx=function(Z,pars) {
 ##' @title cfdr
 ##' @param Z an n x 2 vector of Z scores. Z_i is Z[,1], Z_j is Z[,2]
 ##' @param sub optional parameter; only compute cFDR at this subset of values.
-##' @param #### Other stuff for shared control adjustment
 ##' @return vector of values of cFDR
 ##' @export
 ##' @author James Liley
