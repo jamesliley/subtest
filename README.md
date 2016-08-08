@@ -13,7 +13,7 @@ We analyse disease heterogeneity as characterised either by a division of the ca
 
 We then test for the presence of a set of SNPs which which show simultaneous evidence of inflation in both scores, corresponding to association both with case/control status and with within-case hetergeneity.
 
-We accomplish this by fitting a biivariate mixture Gaussian model under two hypotheses (null and full). The difference in fit of the two models, and hence the evidence for differential genetic basis of subgroups, is assessed by means of an adapted likelihood-ratio test.
+We accomplish this by fitting a bivariate mixture Gaussian model under two hypotheses (null and full). The difference in fit of the two models, and hence the evidence for differential genetic basis of subgroups, is assessed by means of an adapted likelihood-ratio test.
 
 Broadly, the package performs four main functions: generation of Z scores, fitting of models, assessment of models by simulation of random subtypes, and analysis of single SNPs. Input should be a SnpMatrix object (package SnpStats) which has been rigorously QC'd and either pruned to minimal linkage disequilibrium between SNPs or had weights calculated by the LDAK algorithm ([http://dougspeed.com/ldak/]).
 
