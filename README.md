@@ -20,3 +20,9 @@ Broadly, the package performs four main functions: generation of Z scores, fitti
 Output includes a p-value for the evidence of differential genetic basis in subgroups (under the null hypothesis of independence of causative basis of disease heterogeneity and disease causality) and details of fitted models. Fitted values give some indication of the genetic architecture of the disease; namely the approximate proportions of null SNPs and SNPs which are disease-causative without differentiating subtypes, and the (multivariate) distribution of effect sizes of causative SNPs.
 
 Further information can be foundin our paper at http://biorxiv.org/content/early/2016/08/02/037713.
+
+To load in R, type:
+
+`require("devtools")`
+
+`install_github("jamesliley/subtest")`
