@@ -7,8 +7,9 @@ An important consideration in genomic analysis is the question of whether diseas
 
 We analyse disease heterogeneity as characterised either by a division of the case group into two subgroups or parametrised by a single quantitative variable. Our overall approach is to compute two sets of GWAS summary statistics, in the form of Z-scores:
 
-*Z<sub>d<sub>*, characterising phenotypic heterogeneity (independent of controls)
-*Z<sub>a<sub>*, comparing cases with controls
+*Z<sub>d<sub>*: characterising phenotypic heterogeneity (independent of controls)
+
+*Z<sub>a<sub>*: comparing cases with controls
 
 We then test for the presence of a set of SNPs which which show simultaneous evidence of inflation in both scores, corresponding to association both with case/control status and with within-case hetergeneity.
 
