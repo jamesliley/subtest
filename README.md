@@ -23,6 +23,6 @@ Further information can be foundin our paper at http://biorxiv.org/content/early
 
 To load in R, type:
 
-`require("devtools")`
+`library("devtools")`
 
 `install_github("jamesliley/subtest")`
