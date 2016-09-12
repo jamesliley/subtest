@@ -35,7 +35,7 @@
 ##' @param b_int save or print current \code{\link{pars}} every \code{\link{b_int}} iterations
 ##' @param em set to TRUE to use E-M algorithm, FALSE to use R's \code{\link{optim}} function.
 ##' @param incl_z set to TRUE to include input arguments \code{\link{Z}} and \code{\link{weights}} in output. If FALSE these are set to null.
-##' @param ... other parameters passed to R's \code{\link{optim}} function; only used if \code{\link{em}}=FALSE
+##' @param control parameters passed to R's \code{\link{optim}} function; only used if \code{\link{em}}=FALSE
 ##' @return a list of six objects (class \code{\link{3Gfit}}): \code{pars} is the vector of fitted parameters, \code{history} is a matrix of fitted parameters and pseudo-likelihood at each stage in the E-M algorithm, \code{logl} is the joint pseudo-likelihood of \eqn{Z_a} and \eqn{Z_d}, \code{logl_a} is the pseudo-likelihood of \eqn{Z_a} alone (used for adjusting PLR),  \code{z_ad} is n x 2 matrix of \eqn{Z_d} and \eqn{Z_a} scores, \code{weights} is the vector of weights used to generate the model, and \code{hypothesis} is 0 or 1 depending on the value of \code{\link{fit_null}}.
 ##' @export
 ##' @author Chris Wallace and James Liley
@@ -45,7 +45,7 @@
 ##' yy=fit.3g(Z,pars=c(0.7,0.2,2.5,1.5,3,1),weights=weights,incl_z=TRUE)
 ##' yy$pars
 ##' plot(yy,rlim=2)
-fit.3g <- function(Z, pars=c(0.8,0.1,2,2,3,0.5), weights=rep(1,dim(Z)[1]), C=1, fit_null=FALSE, maxit=1e4, tol=1e-4, sgm=0.8, one_way=FALSE, syscov=0, accel=TRUE, verbose=TRUE, file=NULL, n_save=20, incl_z=TRUE, em=TRUE,...) {
+fit.3g <- function(Z, pars=c(0.8,0.1,2,2,3,0.5), weights=rep(1,dim(Z)[1]), C=1, fit_null=FALSE, maxit=1e4, tol=1e-4, sgm=0.8, one_way=FALSE, syscov=0, accel=TRUE, verbose=TRUE, file=NULL, n_save=20, incl_z=TRUE, em=TRUE,control=list(factr=1e1)) {
 
 if (em) {  
   require(mnormt)
@@ -307,9 +307,9 @@ method="L-BFGS-B"
       lh1=function(s) dmnorm(Z,varcov=cbind(c(1,0),c(0,s^2)))
       lh2=function(t,s,r) dmnorm(Z,varcov=cbind(c(t^2,r),c(r,s^2)))
     } else {
-      lh0=dmnorm(Z,varcov=diag(2))
-      lh1=function(s) dmnorm(Z,varcov=cbind(c(1,0),c(0,s^2)))
-      lh2=function(t,s,r) 0.5*(dmnorm(Z,varcov=cbind(c(t^2,r),c(r,s^2)))+dmnorm(Z,varcov=cbind(c(t^2,-r),c(-r,s^2))))
+      lh0=4*dmnorm(Z,varcov=diag(2))
+      lh1=function(s) 4*dmnorm(Z,varcov=cbind(c(1,0),c(0,s^2)))
+      lh2=function(t,s,r) 2*(dmnorm(Z,varcov=cbind(c(t^2,r),c(r,s^2)))+dmnorm(Z,varcov=cbind(c(t^2,-r),c(-r,s^2))))
     }
   } else {
     if (one_way) {
@@ -317,9 +317,9 @@ method="L-BFGS-B"
       lh1=function(s) dmnorm(Z,varcov=cbind(c(1,syscov),c(syscov,s^2)))
       lh2=function(t,s,r) dmnorm(Z,varcov=cbind(c(t^2,r),c(r,s^2)))
     } else {
-      lh0=0.5*(dmnorm(Z,varcov=cbind(c(1,syscov),c(syscov,1))) + dmnorm(Z,varcov=cbind(c(1,-syscov),c(-syscov,1))))
-      lh1=function(s) 0.5*(dmnorm(Z,varcov=cbind(c(1,syscov),c(syscov,s^2))) + dmnorm(Z,varcov=cbind(c(1,-syscov),c(-syscov,s^2))))
-      lh2=function(t,s,r) 0.5*(dmnorm(Z,varcov=cbind(c(t^2,r),c(r,s^2)))+dmnorm(Z,varcov=cbind(c(t^2,-r),c(-r,s^2))))
+      lh0=2*(dmnorm(Z,varcov=cbind(c(1,syscov),c(syscov,1))) + dmnorm(Z,varcov=cbind(c(1,-syscov),c(-syscov,1))))
+      lh1=function(s) 2*(dmnorm(Z,varcov=cbind(c(1,syscov),c(syscov,s^2))) + dmnorm(Z,varcov=cbind(c(1,-syscov),c(-syscov,s^2))))
+      lh2=function(t,s,r) 2*(dmnorm(Z,varcov=cbind(c(t^2,r),c(r,s^2)))+dmnorm(Z,varcov=cbind(c(t^2,-r),c(-r,s^2))))
     }
   }
   
@@ -333,7 +333,7 @@ method="L-BFGS-B"
     
     lmax=function(px)
       -lh(c(px[1]/(1+px[1]),px[2]/((1+px[1])*(1+px[2])),px[3],px[4],px[5],0.63662*px[3]*px[5]*atan(px[6])))
-    sol=optim(c(pars[1]/(1-pars[1]),pars[2]/(1-pars[1]-pars[2]),pars[3],pars[4],pars[5],tan(1.57079*pars[6]/(pars[3]*pars[5]))),lmax,method=method,lower=c(0.001,0.001,sgm,sgm,sgm,0), upper=c(100,100,20,20,20,10),...)
+    sol=optim(c(pars[1]/(1-pars[1]),pars[2]/(1-pars[1]-pars[2]),pars[3],pars[4],pars[5],tan(1.57079*pars[6]/(pars[3]*pars[5]))),lmax,method=method,lower=c(0.001,0.001,sgm,sgm,sgm,0), upper=c(100,100,20,20,20,10),control=control,...)
     ss=sol[1]$par
     conv <<- sol[4]$convergence
     parsx = c(ss[1]/(1+ss[1]),ss[2]/((1+ss[1])*(1+ss[2])),ss[3],ss[4],ss[5],0.63662*ss[3]*ss[5]*atan(ss[6]))
@@ -607,7 +607,7 @@ plot.3Gfit=function(yy,...) {
 ##' @param sumlog set to TRUE to return the (weighted) sum of log pseudo-likelihoods for each datapoint; FALSE to return a vector of pseudo-likelihoods for each datapoint.
 ##' @author James Liley
 ##' @return value of pseudo- log likelihood of all observations (if sumlog==TRUE) or vector of n pseudo-likelihoods (if sumlog==FALSE)
-
+##' @export
 plhood <- function(Z,pars,weights=rep(1,dim(Z)[1]), sumlog=TRUE,C=1) {
   
   # various error handlers
@@ -1011,15 +1011,12 @@ if (pars[1]>=1 | pars[1]<= 0 | pars[2]<= sgm) stop("Initial value of pi0 must al
 
 w=which(!is.na(Z*weights)); Z=Z[w]; weights=weights[w]
 
-l2=function(pars=c(0.5,1),C=1) -(sum(weights*log(pars[1]*dnorm(Z,sd=1) + (1-pars[1])*dnorm(Z,sd=pars[2]))) + C*log(pars[1]*(1-pars[1])))
+l2=function(pars=c(0.5,1)) -(sum(weights*log(pars[1]*dnorm(Z,sd=1) + (1-pars[1])*dnorm(Z,sd=pars[2]))) + C*log(pars[1]*(1-pars[1])))
 
-zx=optim(pars,function(p) l2(p,C),lower=c(1e-5,sgm),upper=c(1-(1e-5),10),method="L-BFGS-B",control=list(factr=1e1),...)
+zx=optim(pars,function(p) l2(p),lower=c(1e-5,sgm),upper=c(1-(1e-5),10),method="L-BFGS-B",control=list(factr=1e1),...)
 
 h1=-zx$value; h0=-l2()
 yy=list(pars=zx$par,h1value=h1,h0value=h0,lr=h1-h0)
 
 return(yy)
 }
-
-
-
