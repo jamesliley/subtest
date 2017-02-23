@@ -4,7 +4,7 @@
 \alias{plot.sim_N_test}
 \title{summary.Nsim_stat}
 \usage{
-\method{plot}{sim_N_test}(yy, all = FALSE)
+plot.sim_N_test(yy, all = FALSE)
 }
 \arguments{
 \item{yy}{object of class sim_N_test, output from Nsim_stat}

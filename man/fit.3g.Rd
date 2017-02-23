@@ -7,7 +7,8 @@
 fit.3g(Z, pars = c(0.8, 0.1, 2, 2, 3, 0.5), weights = rep(1, dim(Z)[1]),
   C = 1, fit_null = FALSE, maxit = 10000, tol = 1e-04, sgm = 0.8,
   one_way = FALSE, syscov = 0, accel = TRUE, verbose = TRUE,
-  file = NULL, n_save = 20, incl_z = TRUE, em = TRUE, ...)
+  file = NULL, n_save = 20, incl_z = TRUE, em = TRUE,
+  control = list(factr = 10))
 }
 \arguments{
 \item{Z}{an n x 2 matrix; \eqn{Z[i,1]}, \eqn{Z[i,2]} are the \eqn{Z_d} and \eqn{Z_a} scores respectively for the \eqn{i}th SNP}
@@ -38,7 +39,7 @@ fit.3g(Z, pars = c(0.8, 0.1, 2, 2, 3, 0.5), weights = rep(1, dim(Z)[1]),
 
 \item{em}{set to TRUE to use E-M algorithm, FALSE to use R's \code{\link{optim}} function.}
 
-\item{...}{other parameters passed to R's \code{\link{optim}} function; only used if \code{\link{em}}=FALSE}
+\item{control}{parameters passed to R's \code{\link{optim}} function; only used if \code{\link{em}}=FALSE}
 
 \item{save}{history to a file with frequency defined by \code{\link{n_save}}}
 
