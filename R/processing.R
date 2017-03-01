@@ -128,10 +128,10 @@ for (i in 1:length(X)) {
   zd=c(zd,z_scores1(sX,sYd,sCd,signed,fam))
 }
 if (control) {
-  qa=qchisq(2*pnorm(-abs(za)),df=1,lower.tail=FALSE); 
+  qa=qchisq(2*pnorm(-abs(zd)),df=1,lower.tail=FALSE); 
   lambda_a=median(qa,na.rm=TRUE)/qchisq(0.5,df=1,lower.tail=FALSE)
   qa=qa/lambda_a
-  za=-sign(za)*qnorm(pchisq(qa,df=1,lower.tail=FALSE))
+  zd=-sign(zd)*qnorm(pchisq(qa,df=1,lower.tail=FALSE))
 }
 
 zd
