@@ -98,7 +98,8 @@ za
 zd_scores=function(X,Ya,Ca=NULL,signed=TRUE,control=TRUE) {
 
 if (is(X,"SnpMatrix")) X=list(X=X) # make handling easier  
-  
+nm=length(X) # number of SnpMatrices
+
 # various error handlers
 if (!("snpStats" %in% rownames(installed.packages()))) stop("Requires package snpStats")
 for (i in 1:nm) {
