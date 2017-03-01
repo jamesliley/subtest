@@ -95,7 +95,7 @@ za
 ##' @author James Liley
 ##' @examples
 ##' # See examples for function z_scores
-zd_scores=function(X,Ya,Cd=NULL,signed=TRUE,control=TRUE) {
+zd_scores=function(X,Yd,Cd=NULL,signed=TRUE,control=TRUE) {
 
 if (is(X,"SnpMatrix")) X=list(X=X) # make handling easier  
 nm=length(X) # number of SnpMatrices
