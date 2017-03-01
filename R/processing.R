@@ -95,7 +95,7 @@ za
 ##' @author James Liley
 ##' @examples
 ##' # See examples for function z_scores
-zd_scores=function(X,Ya,Ca=NULL,signed=TRUE,control=TRUE) {
+zd_scores=function(X,Ya,Cd=NULL,signed=TRUE,control=TRUE) {
 
 if (is(X,"SnpMatrix")) X=list(X=X) # make handling easier  
 nm=length(X) # number of SnpMatrices
@@ -104,7 +104,7 @@ nm=length(X) # number of SnpMatrices
 if (!("snpStats" %in% rownames(installed.packages()))) stop("Requires package snpStats")
 for (i in 1:nm) {
   if (!(is(X[[i]],"SnpMatrix") | is(X[[i]],"XSnpMatrix"))) stop("X must be a SnpMatrix/XSnpMatrix or list of objects of these classes (package snpStats)")
-  if (!((dim(X[[i]])[1]==length(Ya)) & (is.null(Ca) || (dim(Ca)[1]==dim(X[[i]])[1])))) stop("Length of Yd, number of rows of Cd, and number of rows of each SnpMatrix must be the same")
+  if (!((dim(X[[i]])[1]==length(Ya)) & (is.null(Cd) || (dim(Cd)[1]==dim(X[[i]])[1])))) stop("Length of Yd, number of rows of Cd, and number of rows of each SnpMatrix must be the same")
 }
 if (!(is.null(Cd) | is.matrix(Cd) |is.data.frame(Cd))) stop("Parameter Cd must be a matrix or data frame")
 
