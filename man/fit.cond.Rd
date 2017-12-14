@@ -6,7 +6,8 @@
 \usage{
 fit.cond(Z, pars = c(0.8, 0.1, 2, 3, 1, 0), C = 1, weights = rep(1,
   dim(Z)[1]), fit_null = FALSE, one_way = FALSE, syscov = 0, sgm = 0.8,
-  fixpi1 = TRUE, incl_z = FALSE, method = "L-BFGS-B", ...)
+  fixpi1 = TRUE, incl_z = FALSE, method = "L-BFGS-B",
+  control = list(factr = 10))
 }
 \arguments{
 \item{Z}{an n x 2 matrix; \eqn{Z[i,1]}, \eqn{Z[i,2]} are the \eqn{Z_d} and \eqn{Z_a} scores respectively for the \eqn{i}th SNP}
@@ -29,7 +30,7 @@ fit.cond(Z, pars = c(0.8, 0.1, 2, 3, 1, 0), C = 1, weights = rep(1,
 
 \item{incl_z}{set to TRUE to include input arguments \code{\link{Z}} and \code{\link{weights}} in output. If FALSE these are set to null.}
 
-\item{...}{additional parameters passed to the R function optim.}
+\item{control}{additional parameters passed to the R function optim.}
 }
 \value{
 a list of six objects (class \code{\link{3Gfit}}): \code{pars} is the vector of fitted parameters, \code{history} is a matrix of fitted parameters and pseudo-likelihood at each stage in the E-M algorithm, \code{logl} is the joint pseudo-likelihood of \eqn{Z_a} and \eqn{Z_d}, \code{logl_a} is the pseudo-likelihood of \eqn{Z_a} alone (used for adjusting PLR),  \code{z_ad} is n x 2 matrix of \eqn{Z_d} and \eqn{Z_a} scores, \code{weights} is the vector of weights used to generate the model, and \code{hypothesis} is 0 or 1 depending on the value of \code{\link{fit_null}}.

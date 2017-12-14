@@ -333,13 +333,13 @@ method="L-BFGS-B"
     
     lmax=function(px)
       -lh(c(px[1]/(1+px[1]),px[2]/((1+px[1])*(1+px[2])),px[3],px[4],px[5],0.63662*px[3]*px[5]*atan(px[6])))
-    sol=optim(c(pars[1]/(1-pars[1]),pars[2]/(1-pars[1]-pars[2]),pars[3],pars[4],pars[5],tan(1.57079*pars[6]/(pars[3]*pars[5]))),lmax,method=method,lower=c(0.001,0.001,sgm,sgm,sgm,0), upper=c(100,100,20,20,20,10),control=control,...)
+    sol=optim(c(pars[1]/(1-pars[1]),pars[2]/(1-pars[1]-pars[2]),pars[3],pars[4],pars[5],tan(1.57079*pars[6]/(pars[3]*pars[5]))),lmax,method=method,lower=c(0.001,0.001,sgm,sgm,sgm,0), upper=c(100,100,20,20,20,10),control=control)
     ss=sol[1]$par
     conv <<- sol[4]$convergence
     parsx = c(ss[1]/(1+ss[1]),ss[2]/((1+ss[1])*(1+ss[2])),ss[3],ss[4],ss[5],0.63662*ss[3]*ss[5]*atan(ss[6]))
   } else {
     lmax=function(px) -lh(c(px[1]/(1+px[1]),px[2]/((1+px[1])*(1+px[2])),px[3],px[4],1,0))
-    sol=optim(c(pars[1]/(1-pars[1]),pars[2]/(1-pars[1]-pars[2]),pars[3],pars[4]),lmax,method=method,lower=c(0.001,0.001,sgm,sgm),upper=c(100,100,20,20),...)
+    sol=optim(c(pars[1]/(1-pars[1]),pars[2]/(1-pars[1]-pars[2]),pars[3],pars[4]),lmax,method=method,lower=c(0.001,0.001,sgm,sgm),upper=c(100,100,20,20),control=control)
     conv <<- sol[4]$convergence
     ss=sol[1]$par
     parsx = c(ss[1]/(1+ss[1]),ss[2]/((1+ss[1])*(1+ss[2])),ss[3],ss[4],1,0)
@@ -395,7 +395,7 @@ method="L-BFGS-B"
 ##' @param sgm force \code{sigma1} \eqn{\ge sgm}, \code{sigma2} \eqn{\ge sgm}, \code{tau} \eqn{\ge sgm}. True marginals variances should never be less than 1, but some variation should be allowed.
 ##' @param fixpi1 set to TRUE to fix \code{\link{pi1}} when fitting.
 ##' @param incl_z set to TRUE to include input arguments \code{\link{Z}} and \code{\link{weights}} in output. If FALSE these are set to null.
-##' @param ... additional parameters passed to the R function optim.
+##' @param control additional parameters passed to the R function optim.
 ##' @return a list of six objects (class \code{\link{3Gfit}}): \code{pars} is the vector of fitted parameters, \code{history} is a matrix of fitted parameters and pseudo-likelihood at each stage in the E-M algorithm, \code{logl} is the joint pseudo-likelihood of \eqn{Z_a} and \eqn{Z_d}, \code{logl_a} is the pseudo-likelihood of \eqn{Z_a} alone (used for adjusting PLR),  \code{z_ad} is n x 2 matrix of \eqn{Z_d} and \eqn{Z_a} scores, \code{weights} is the vector of weights used to generate the model, and \code{hypothesis} is 0 or 1 depending on the value of \code{\link{fit_null}}.
 ##' @export
 ##' @author Chris Wallace and James Liley
@@ -405,7 +405,7 @@ method="L-BFGS-B"
 ##' yy=fit.3g(Z,pars=c(0.7,0.2,2.5,1.5,3,1),weights=weights,incl_z=TRUE)
 ##' yy$pars
 ##' plot(yy,rlim=2)
-fit.cond=function(Z,pars=c(0.8,0.1,2,3,1,0),C=1,weights=rep(1,dim(Z)[1]),fit_null=FALSE,one_way=FALSE,syscov=0,sgm=0.8,fixpi1=TRUE,incl_z=FALSE,method="L-BFGS-B",...) {
+fit.cond=function(Z,pars=c(0.8,0.1,2,3,1,0),C=1,weights=rep(1,dim(Z)[1]),fit_null=FALSE,one_way=FALSE,syscov=0,sgm=0.8,fixpi1=TRUE,incl_z=FALSE,method="L-BFGS-B",control=list(factr=1e1)) {
 
   require(stats)
   require(mnormt)
@@ -466,13 +466,13 @@ fit.cond=function(Z,pars=c(0.8,0.1,2,3,1,0),C=1,weights=rep(1,dim(Z)[1]),fit_nul
 
     lmax=function(px)
         -lh(c(px[1]/(1+px[1]),px[2]/((1+px[1])*(1+px[2])),px[3],p4,px[4],0.63662*px[3]*px[4]*atan(px[5])))
-    sol=optim(c(pars[1]/(1-pars[1]),pars[2]/(1-pars[1]-pars[2]),pars[3],pars[5],tan(1.57079*pars[6]/(pars[3]*pars[5]))),lmax,method=method,lower=c(0.001,0.001,sgm,sgm,0), upper=c(100,100,20,20,10),...)
+    sol=optim(c(pars[1]/(1-pars[1]),pars[2]/(1-pars[1]-pars[2]),pars[3],pars[5],tan(1.57079*pars[6]/(pars[3]*pars[5]))),lmax,method=method,lower=c(0.001,0.001,sgm,sgm,0), upper=c(100,100,20,20,10),control=control)
     ss=sol[1]$par
     conv <<- sol[4]$convergence
     parsx = c(ss[1]/(1+ss[1]),ss[2]/((1+ss[1])*(1+ss[2])),ss[3],p4,ss[4],0.63662*ss[3]*ss[4]*atan(ss[5]))
   } else {
     lmax=function(px) -lh(c(px[1]/(1+px[1]),px[2]/((1+px[1])*(1+px[2])),px[3],p4,1,0))
-    sol=optim(c(pars[1]/(1-pars[1]),pars[2]/(1-pars[1]-pars[2]),pars[3]),lmax,method=method,lower=c(0.001,0.001,sgm),upper=c(100,100,20),...)
+    sol=optim(c(pars[1]/(1-pars[1]),pars[2]/(1-pars[1]-pars[2]),pars[3]),lmax,method=method,lower=c(0.001,0.001,sgm),upper=c(100,100,20),control=control)
     conv <<- sol[4]$convergence
     ss=sol[1]$par
     parsx = c(ss[1]/(1+ss[1]),ss[2]/((1+ss[1])*(1+ss[2])),ss[3],p4,1,0)
@@ -481,13 +481,13 @@ fit.cond=function(Z,pars=c(0.8,0.1,2,3,1,0),C=1,weights=rep(1,dim(Z)[1]),fit_nul
     if (!fit_null) {
       lmax=function(px)
         -lh(c(px[1]*(1-p2)/(1+px[1]),p2,px[2],p4,px[3],0.63662*px[2]*px[3]*atan(px[4])))
-      sol=optim(c(pars[1]/(1-pars[1]),pars[3],pars[5],tan(1.57079*pars[6]/(pars[3]*pars[5]))),lmax,method=method,lower=c(0.001,sgm,sgm,0), upper=c(100,20,20,10),...)
+      sol=optim(c(pars[1]/(1-pars[1]),pars[3],pars[5],tan(1.57079*pars[6]/(pars[3]*pars[5]))),lmax,method=method,lower=c(0.001,sgm,sgm,0), upper=c(100,20,20,10),control=control)
       ss=sol[1]$par
       conv <<- sol[4]$convergence
       parsx = c(ss[1]*(1-p2)/(1+ss[1]),p2,ss[2],p4,ss[3],0.63662*ss[2]*ss[3]*atan(ss[4]))
     } else {
       lmax=function(px) -lh(c(px[1]*(1-p2)/(1+px[1]),p2,px[2],p4,1,0))
-      sol=optim(c(pars[1]/(1-pars[1]),pars[3]),lmax,method=method,lower=c(0.001,sgm),upper=c(100,20),...)
+      sol=optim(c(pars[1]/(1-pars[1]),pars[3]),lmax,method=method,lower=c(0.001,sgm),upper=c(100,20),control=control)
       conv <<- sol[4]$convergence
       ss=sol[1]$par
       parsx = c(ss[1]*(1-p2)/(1+ss[1]),p2,ss[2],p4,1,0)
@@ -766,7 +766,7 @@ plotvdist=function(varcov=diag(2), m=c(0,0), scales= (2^(-(1:5))),relative=TRUE,
 ##'
 ##' @title plotpars
 ##' @param pars six element vector (\code{pi0},\code{pi1},\code{tau},\code{sigma1},\code{sigma2},\code{rho})
-
+##' @export
 plotpars=function(pars,over=TRUE,...) {
   varcov1=diag(2)
   varcov2=cbind(c(1,0),c(0,pars[4]))

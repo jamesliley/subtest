@@ -4,7 +4,7 @@
 \alias{plot.3Gfit}
 \title{Plot method for class \code{\link{3Gfit}}.}
 \usage{
-\method{plot}{3Gfit}(yy, ...)
+plot.3Gfit(yy, ...)
 }
 \arguments{
 \item{yy}{object of class \code{\link{3Gfit}}; generally output from \code{\link{fit.3g}}}

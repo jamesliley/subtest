@@ -238,6 +238,7 @@ yy
 ##' @param plr set of plr values
 ##' @param init values of gamma, kappa at which to start numerical fitting algorithm
 ##' @return two element vector; gamma, kappa.
+##' @export
 ##' @examples
 ##' gamma=0.7;kappa=0.4;p0=0.05; N=10000
 ##' px=sort(gamma*c(rep(0,p0*N),rchisq(kappa*N,df=1),rchisq((1-kappa)*N,df=2)))
