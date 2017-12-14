@@ -29,4 +29,3 @@ plotZ(Z,rlim=2,col=rgb(gp))
 \author{
 James Liley
 }
-

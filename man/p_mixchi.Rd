@@ -34,4 +34,3 @@ p_mixchi(10,gamma,kappa)
 \author{
 James Liley
 }
-

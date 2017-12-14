@@ -27,4 +27,3 @@ Power of the PLR method depends on the number of SNPs in category 3 (\code{\link
 \details{
 Function to estimate power to reject the null hypothesis at significance \code{\link{p}} given underlying parameters \code{\link{pi2}}, \code{\link{s2}}, \code{\link{tau}} and \code{\link{rho}}.
 }
-

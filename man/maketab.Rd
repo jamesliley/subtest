@@ -22,4 +22,3 @@ Each row of the matrix of simulations must have length >25, in which the first 1
 
 Simulations must be such that the asymptotic distribution of PLR under the null is a mixture of chi^2 distributions with one and two degrees of freedom, where distributions have equal weights.
 }
-

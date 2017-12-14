@@ -49,4 +49,3 @@ obs_z=-qnorm(test/2)*sign(omaf_2-omaf_1) # observed Z scores
 sd(obs_z) # observed SD of Z scores
 p2s(p_underlying,n1,n2) # predicted
 }
-

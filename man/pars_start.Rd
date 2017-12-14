@@ -32,4 +32,3 @@ Obtain a set of starting parameters for E-M algorithm, given Z_a and Z_d scores 
 \author{
 James Liley
 }
-

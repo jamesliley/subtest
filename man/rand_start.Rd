@@ -27,4 +27,3 @@ sim_start(sim_mat)
 \author{
 James Liley
 }
-

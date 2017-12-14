@@ -28,4 +28,3 @@ Tests if a point is inside a tetredron
  intet(x,p1,p2,p3,p4)
  intet(y,p1,p2,p3,p4)
 }
-

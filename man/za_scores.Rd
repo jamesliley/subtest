@@ -26,4 +26,3 @@ Generates Z_a scores from a QC'd genotype matrix
 \author{
 James Liley
 }
-

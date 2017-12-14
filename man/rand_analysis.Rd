@@ -22,4 +22,3 @@ plot(S)
 \author{
 James Liley
 }
-

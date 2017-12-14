@@ -40,4 +40,3 @@ Simulate a matrix of genotypes following a set of model parameters.
 \details{
 Sets global variable \code{\link{pars_true}} containing 'true' parameter values, and \code{\link{or_true}} containing details of underlying odds ratio distribution.
 }
-

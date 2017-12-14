@@ -35,4 +35,3 @@ plot(stat)
 \author{
 James Liley
 }
-

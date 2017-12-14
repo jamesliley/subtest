@@ -17,4 +17,3 @@ estimate of power at new set of parameter values
 \description{
 Given a table of observed power values from simulations at a range of parameter sets, estimates power at a new set of parameters by linear interpolation. Table of power values must be complete.
 }
-

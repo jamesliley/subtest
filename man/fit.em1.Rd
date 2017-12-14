@@ -41,4 +41,3 @@ fit$history
 \author{
 Chris Wallace, James Liley
 }
-

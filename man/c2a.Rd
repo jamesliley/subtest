@@ -49,4 +49,3 @@ plot(true_fdr,fdr,xlab="True FDR",ylab="Estimated",col="red"); points(true_fdr,X
 \author{
 James Liley
 }
-

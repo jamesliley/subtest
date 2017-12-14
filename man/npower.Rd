@@ -21,4 +21,3 @@ The observed standard deviation depends on the underlying distribution of popula
 
 This function computes the number of cases in two groups necessary to reach a given observed standard deviation (\code{\link{sig_o}}) for effect sizes between then (\code{tau} or \code{s2}). The two groups correspond to either the number of cases and the number of controls (in which case \code{\link{sig_o}}=\code{s2}) or the number of cases in each subgroup (in which case \code{\link{sig_o}}=\code{tau}).
 }
-

@@ -4,7 +4,7 @@
 \alias{plot.sim_output}
 \title{Plot method for class sim_output. Plots the values of PLR in ascending order along with mixture chi-squared distribution, and a Q-Q plot comparing the two. Sets global variables X,Y where (X,Y) are the points on the Q-Q plot.}
 \usage{
-plot.sim_output(yy, QQ = NULL, conf = FALSE, q95 = FALSE, ...)
+\method{plot}{sim_output}(yy, QQ = NULL, conf = FALSE, q95 = FALSE, ...)
 }
 \arguments{
 \item{yy}{object of class sim_output; generally output from sim_analysis}
@@ -23,4 +23,3 @@ Plot method for class sim_output. Plots the values of PLR in ascending order alo
 \author{
 James Liley
 }
-

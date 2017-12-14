@@ -15,4 +15,3 @@ Print method for class \code{\link{3Gfit}}
 \author{
 James Liley
 }
-

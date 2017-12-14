@@ -38,4 +38,3 @@ pbind(c(0.5,1,1.5,2,3,5,10,20,30),plr,tau,s1,s2,rho)
 \author{
 James Liley
 }
-

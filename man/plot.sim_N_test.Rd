@@ -4,7 +4,7 @@
 \alias{plot.sim_N_test}
 \title{summary.Nsim_stat}
 \usage{
-plot.sim_N_test(yy, all = FALSE)
+\method{plot}{sim_N_test}(yy, all = FALSE)
 }
 \arguments{
 \item{yy}{object of class sim_N_test, output from Nsim_stat}
@@ -20,4 +20,3 @@ Draws plot of values and quantiles of each test statistic for each bootstrap sam
 \author{
 James Liley
 }
-

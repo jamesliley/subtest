@@ -45,4 +45,3 @@ syscov(v,n1,n2,nc)
 \author{
 Chris Wallace and James Liley
 }
-

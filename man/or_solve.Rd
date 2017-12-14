@@ -32,4 +32,3 @@ mm=or_solve(mafs,ors,n1,n2)
 plot((n1*mm[,1] + n2*mm[,2])/(n1+n2),mafs)
 plot(mm[,1]*(1-mm[,2])/(mm[,2]*(1-mm[,1])),ors)
 }
-

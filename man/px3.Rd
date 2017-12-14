@@ -50,4 +50,3 @@ plot((1:length(pX))/(1+length(pX)),sort(pX),xlab="Quantile in U[0,1]",ylab="Obse
 \author{
 James Liley
 }
-

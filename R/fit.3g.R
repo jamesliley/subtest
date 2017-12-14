@@ -378,9 +378,9 @@ method="L-BFGS-B"
 ##' 
 ##' The model is thus characterised by the vector \code{\link{pars}}=(\code{pi0},\code{pi1},\code{tau},\code{sigma1},\code{sigma2},\code{rho}). Under the null hypothesis that SNPs which differentiate subtypes are not in general associated with the phenotype, we have \code{sigma2}=1, \code{rho}=0.
 ##' 
-##' In estimating the null distribution of the test statistic, frequently the only available null test cases have \code{\link{tau}=1}. This can cause false-positives if \code{\link{Z_{a}}} is better-fit by a three gaussian distribution than two.
+##' In estimating the null distribution of the test statistic, frequently the only available null test cases have \code{\link{tau}=1}. This can cause false-positives if \code{Z_{a}} is better-fit by a three gaussian distribution than two.
 ##' 
-##' To overcome this, we maximise the likelihood conditioning on the observed values of \code{\link{Z_{a}}}
+##' To overcome this, we maximise the likelihood conditioning on the observed values of \code{Z_{a}}
 ##' 
 ##' This function finds the maximum pseudo-likelihood estimators for the paramaters of these three Gaussians, and the mixing parameters representing the proportion of SNPs in each category.
 ##' 

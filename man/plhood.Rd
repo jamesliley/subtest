@@ -26,4 +26,3 @@ Pseudo-likelihood for a set of observations of Z_d and Z_a
 \author{
 James Liley
 }
-

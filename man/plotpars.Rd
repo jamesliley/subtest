@@ -12,4 +12,3 @@ plotpars(pars, over = TRUE, ...)
 \description{
 Plots contour lines of three bivariate normal distributions as determined by \code{\link{pars}}
 }
-

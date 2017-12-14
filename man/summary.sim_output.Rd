@@ -15,4 +15,3 @@ Summary method for class sim_output
 \author{
 James Liley
 }
-

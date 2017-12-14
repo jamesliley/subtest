@@ -43,4 +43,3 @@ plotZ(Z,rlim=2); points(Z[which(cfdr<0.001),],col="red",pch=16)
 \author{
 James Liley
 }
-

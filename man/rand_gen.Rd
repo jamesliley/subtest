@@ -42,4 +42,3 @@ For a genotype matrix, simulate a random subtyping, compute corresponding Za and
 \author{
 James Liley
 }
-
