@@ -7,10 +7,11 @@ Depends:
     R (>= 3.2.3),
     mnormt,
     plotrix
+Suggests:
+    snpStats
 License: 
 LazyData: true
 RoxygenNote: 5.0.1
 Suggests: knitr,
-    rmarkdown,
-    snpStats
+    rmarkdown
 VignetteBuilder: knitr
