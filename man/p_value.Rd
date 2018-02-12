@@ -4,25 +4,16 @@
 \alias{p_value}
 \title{p_value}
 \usage{
-p_value(x, S = NULL)
+p_value(x, cplr)
 }
 \arguments{
 \item{x}{list of plr values at which to compute p value}
 
-\item{S}{object of class sim_output; output from sim_analysis}
+\item{cplr}{list of cplr values from simulations from which to estimate null distribution}
 }
 \description{
 Computes the p-value of an observed PLR according to either empirical quantile in simulations, a mixture chi-square distribution, or the empirical bound, depending on size.
 }
-\examples{
- gamma=0.7; kappa=0.3; N=1000; 
- n1=round(kappa*N); n2=N-n1; Xs=gamma*c(qchisq((1:n1)/(1+n1),df=1),qchisq((1:n2)/(1+n2),df=2))
- 
- pp=p_mixchi(Xs,gamma=gamma,kappa=kappa)
- plot((1:length(pp))/(1+length(pp)),sort(pp),xlab="Quantile in U(0,1)",ylab="P-value"); abline(0,1,col="red")
-p_mixchi(10,gamma,kappa)
-}
 \author{
 James Liley
 }
-

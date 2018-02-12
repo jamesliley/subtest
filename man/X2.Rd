@@ -31,4 +31,3 @@ plotZ(Z,rlim=2,col=gray(X));
 \author{
 James Liley
 }
-

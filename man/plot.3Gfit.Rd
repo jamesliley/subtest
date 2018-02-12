@@ -4,7 +4,7 @@
 \alias{plot.3Gfit}
 \title{Plot method for class \code{\link{3Gfit}}.}
 \usage{
-plot.3Gfit(yy, ...)
+\method{plot}{3Gfit}(yy, ...)
 }
 \arguments{
 \item{yy}{object of class \code{\link{3Gfit}}; generally output from \code{\link{fit.3g}}}
@@ -17,4 +17,3 @@ If the \code{z_ad} attribute of parameter \code{\link{yy}} is set, plots the abs
 \author{
 James Liley
 }
-

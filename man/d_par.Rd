@@ -25,4 +25,3 @@ image(as.matrix(dx))
 \author{
 James Liley
 }
-

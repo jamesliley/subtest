@@ -32,4 +32,3 @@ plotvdist(mat1,c(1,1),xlim=c(-5,5),ylim=c(-5,5),over=FALSE,col="red")
 plotvdist(mat2,c(0,0),over=TRUE)
 abline(h=0,lty=2); abline(v=0,lty=2)
 }
-

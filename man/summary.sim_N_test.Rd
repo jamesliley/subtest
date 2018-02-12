@@ -18,4 +18,3 @@ Summary method for class sim_N_test
 \author{
 James Liley
 }
-

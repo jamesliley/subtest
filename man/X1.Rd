@@ -27,4 +27,3 @@ plotZ(Z,rlim=2); points(Z[which(X1>0.7),],col="red",pch=16)
 \author{
 James Liley
 }
-

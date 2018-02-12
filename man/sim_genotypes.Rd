@@ -5,8 +5,9 @@
 \title{sim_genotypes}
 \usage{
 sim_genotypes(n_snps = 50000, n_control = 2000, n_case = c(1000, 1000),
-  pars = NULL, q2SEd = NULL, q2SEa1 = NULL, q2SEa2 = NULL,
-  cor_st = NULL, seed = NULL, return_matrix = FALSE, null_model = TRUE)
+  pars = c(0.9, 0.05, 2, 2, 3, 1), q2SEd = NULL, q2SEa1 = NULL,
+  q2SEa2 = NULL, cor_st = NULL, seed = NULL, return_matrix = FALSE,
+  null_model = TRUE)
 }
 \arguments{
 \item{n_snps}{number of SNPs}
@@ -40,4 +41,3 @@ Simulate a matrix of genotypes following a set of model parameters.
 \details{
 Sets global variable \code{\link{pars_true}} containing 'true' parameter values, and \code{\link{or_true}} containing details of underlying odds ratio distribution.
 }
-

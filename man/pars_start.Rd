@@ -4,8 +4,8 @@
 \alias{pars_start}
 \title{pars_start}
 \usage{
-pars_start(Z, weights = rep(1, dim(Z)[1]), H = 1, n1 = 1000, n2 = 10,
-  n3 = 3, C = 1, nx = 10, seed = NULL)
+pars_start(Z, weights = rep(1, dim(Z)[1]), H = 1, n1 = 100, n2 = 10,
+  n3 = 5, C = 1, nx = 3, seed = NULL)
 }
 \arguments{
 \item{Z}{an n x 2 array; Z[i,1], Z[i,2] are the Z_d and Z_a scores respectively for the ith SNP}
@@ -32,4 +32,3 @@ Obtain a set of starting parameters for E-M algorithm, given Z_a and Z_d scores 
 \author{
 James Liley
 }
-

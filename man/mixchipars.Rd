@@ -25,4 +25,3 @@ gamma=0.7;kappa=0.4;p0=0.05; N=10000
 px=sort(gamma*c(rep(0,p0*N),rchisq(kappa*N,df=1),rchisq((1-kappa)*N,df=2)))
 mixchipars(px)
 }
-

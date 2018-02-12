@@ -31,4 +31,3 @@ plotZ(Z,rlim=2,col="red",cex=0.5)
 \author{
 James Liley
 }
-

@@ -4,7 +4,7 @@
 \alias{cfdr}
 \title{cfdr}
 \usage{
-cfdr(Z, sub = 1:dim(Z)[1])
+cfdr(Z, sub = which(Z[, 1]^2 + Z[, 2]^2 > 6))
 }
 \arguments{
 \item{Z}{an n x 2 vector of Z scores. Z_i is Z[,1], Z_j is Z[,2]}
@@ -43,4 +43,3 @@ plotZ(Z,rlim=2); points(Z[which(cfdr<0.001),],col="red",pch=16)
 \author{
 James Liley
 }
-

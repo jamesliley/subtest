@@ -28,4 +28,3 @@ print(c(cor(x[mult],y[mult]),wcor(x,y,weights=weights)))
 \author{
 James Liley
 }
-
