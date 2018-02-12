@@ -508,12 +508,6 @@ fit.cond=function(Z,pars=c(0.8,0.1,2,3,1,0),C=1,weights=rep(1,dim(Z)[1]),fit_nul
 
 
 
-
-
-
-
-
-
 ##' Print method for class \code{\link{3Gfit}}
 ##' 
 ##' @param yy object of class \code{\link{3Gfit}}; generally output from \code{\link{fit.3g}}
@@ -682,6 +676,28 @@ plhood1=function(za,pars,weights=rep(1,length(za)),C=1,sumlog=TRUE) {
   }
 }
 
+
+
+##' Conditional pseudo-likelihood for a set of observations of Z_d and Z_a. Objective function for fit.cond
+##' @param Z an n x 2 array; Z[i,1], Z[i,2] are the Z_d and Z_a scores respectively for the ith SNP
+##' @param pars vector containing initial values of pi0,pi1,tau,sigma1,sigma2,rho.
+##' @param weights SNP weights to adjust for LD; output from LDAK procedure
+##' @param C scaling factor for adjustment to ensure model identifiability
+##' @author James Liley
+##' @return value of pseudo- log likelihood of all observations (if sumlog==TRUE) or vector of n pseudo-likelihoods (if sumlog==FALSE)
+##' @export
+cplhood=function(Z,pars,weights=rep(1,dim(Z)[1]),C=1) {
+  pars=as.numeric(pars)
+  lh0=dmnorm(Z,varcov=diag(2))
+  lh1=function(s) dmnorm(Z,varcov=cbind(c(1,0),c(0,s^2)))
+  lh2=function(t,s,r) 0.5*(dmnorm(Z,varcov=cbind(c(t^2,r),c(r,s^2)))+dmnorm(Z,varcov=cbind(c(t^2,-r),c(-r,s^2))))
+  
+  lht=function(pars) sum(weights*log(pars[1]*lh0 + pars[2]*lh1(pars[4]) + (1-pars[1]-pars[2])*lh2(pars[3],pars[5],pars[6])))
+  lha=function(pars) -0.5 - (log(sqrt(2*3.1415))) + sum(weights*log(pars[1]*dnorm(Z[,2]) + pars[2]*dnorm(Z[,2],sd=pars[4]) + (1-pars[1]-pars[2])*dnorm(Z[,2],sd=pars[5])))
+  
+  lh=function(pars) lht(pars)-lha(pars) + C*log(pars[1]*pars[2]*(1-pars[1]-pars[2]))
+  lh(pars)
+}
 
 
 
@@ -970,6 +986,8 @@ wcor=function(x,y,weights=rep(1,length(x))) {
 syscov=function(v,n1,n2,nc) {
   (v*n2 - (1-v)*n1)/(sqrt(n1+n2)*sqrt( (v^2)*n2 + ((1-v)^2)*n1 + (n1*n2/nc)))
 }
+
+
 
 
 

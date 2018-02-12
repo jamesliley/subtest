@@ -199,7 +199,7 @@ getpx=function(Z,pars) {
 ##' cfdr=cfdr(Z,sub=which(Z[,1]^2 + Z[,2]^2 > 6))
 ##' plotZ(Z,rlim=2); points(Z[which(cfdr<0.001),],col="red",pch=16)
 
-cfdr=function(Z,sub=1:dim(Z)[1]) {
+cfdr=function(Z,sub=which(Z[,1]^2 + Z[,2]^2 > 6)) {
 
 if (dim(Z)[2]!=2) stop("Z must be an n x 2 matrix")
 if (!all(sub %in% 1:dim(Z)[1])) stop(paste0("Parameter sub must be a subset of 1:",dim(Z)[1]))

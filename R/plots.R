@@ -15,7 +15,6 @@
 ##' stat=Nsim_stat(sim_mat)
 ##' summary(stat)
 ##' plot(stat)
-
 Nsim_stat=function(lr,NN=c(50,100,500,1000,1500),NB=500,p_at=c(2,3,5,10),quant_at=pnorm(-2:2),verbose=TRUE) {
 
 # Error handlers

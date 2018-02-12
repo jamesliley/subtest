@@ -18,7 +18,7 @@
 ##' @param null_model if \code{\link{pars}}=NULL and other parameters are null, parameters are chosen randomly. If \code{\link{null_model}}=TRUE, parameters are chosen from H0, otherwise H1.
 ##' @return Either object of type SnpMatrix, in which indices are, in order: controls, case subtype 1, case subtype 2; or \eqn{Z_{d}}{Z_d} and \eqn{Z_{a}}{Z_a} scores in an n x 2 matrix, with Z[,1]=Z_d, Z[,2]=Z_a. Global variable \code{\link{pars_true}} contains 'true' values of parameters of \eqn{Z_{a}}{Z_a}, \eqn{Z_{d}}{Z_d} distribution and can be used to start the fitting algorithm. Global variable \code{\link{or_true}} contains values (\code{pi0},\code{pi1},\code{\link{q2SEd}},\code{\link{q2SEa1}},\code{\link{q2SEa2}},\code{\link{cor_st}})
 ##' @export
-sim_genotypes=function(n_snps=5e4,n_control=2000,n_case=c(1000,1000), pars=NULL,q2SEd=NULL,q2SEa1=NULL,q2SEa2=NULL,cor_st=NULL,seed=NULL,return_matrix=FALSE,null_model=TRUE) {
+sim_genotypes=function(n_snps=5e4,n_control=2000,n_case=c(1000,1000), pars=c(0.9,0.05,2,2,3,1),q2SEd=NULL,q2SEa1=NULL,q2SEa2=NULL,cor_st=NULL,seed=NULL,return_matrix=FALSE,null_model=TRUE) {
 
 if (is.null(seed)) {
  options(digits.secs=6);
